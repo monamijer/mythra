@@ -30,10 +30,11 @@ import com.monprojet.series.dto.response.FournisseurResponse;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.monprojet.series.dto.response.VideoResponse;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+// import java.util.ArrayList;
+// import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.function.Function;
 
@@ -151,6 +152,41 @@ public class TmdbService {
                 .toList();
     }
 
+        /** Bande-annonce YouTube (Trailer en priorité, sinon Teaser, sinon première vidéo). */
+    public List<VideoResponse> listerVideos(Long tmdbId) {
+        TmdbVideosDto dto = appeler(uri -> uri.path("/tv/{id}/videos")
+                .queryParam("api_key", apiKey)
+                .queryParam("language", "fr-FR")
+                .build(tmdbId), TmdbVideosDto.class);
+
+        if (dto.results() == null) return List.of();
+
+        // On ne garde que YouTube, on trie par pertinence : Trailer > Teaser > autres
+        List<TmdbVideosDto.Video> youtube = dto.results().stream()
+                .filter(v -> "YouTube".equalsIgnoreCase(v.site()))
+                .sorted((a, b) -> Integer.compare(prioriteVideo(a.type()), prioriteVideo(b.type())))
+                .toList();
+
+        return youtube.stream()
+                .map(v -> new VideoResponse(
+                        v.key(),
+                        v.name(),
+                        v.type(),
+                        "https://www.youtube.com/watch?v=" + v.key(),
+                        "https://www.youtube-nocookie.com/embed/" + v.key()
+                ))
+                .toList();
+    }
+
+    private int prioriteVideo(String type) {
+        if (type == null) return 99;
+        return switch (type) {
+            case "Trailer" -> 0;
+            case "Teaser"  -> 1;
+            case "Clip"    -> 2;
+            default        -> 99;
+        };
+    }
         /** Watch providers. */
     public Map<String, List<FournisseurResponse>> listerFournisseurs(Long tmdbId) {
         TmdbWatchProvidersDto dto = appeler(uri -> uri.path("/tv/{id}/watch/providers")

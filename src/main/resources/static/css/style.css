@@ -656,3 +656,120 @@ main { padding: var(--espace); max-width: 900px; margin: 0 auto; }
   min-height: 1.2rem;
   font-weight: 500;
 }
+
+/* ===== Bande-annonce ===== */
+
+.bloc-video {
+  margin: 1rem 0 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.bloc-video h3 {
+  font-size: 1rem;
+  color: var(--couleur-primaire);
+  margin-bottom: 0.6rem;
+}
+
+.video-principale {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.video-apercu {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--rayon);
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  aspect-ratio: 16/9;
+}
+
+.video-apercu img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.video-apercu:hover img { opacity: 1; }
+
+.play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 6px; /* pour centrer le triangle ▶ */
+  pointer-events: none;
+}
+
+.video-titre {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.5rem;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.videos-alternatives {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.video-miniature {
+  min-height: 32px;
+  padding: 0 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: var(--rayon);
+  background: white;
+  color: var(--couleur-texte);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.video-miniature:hover { background: #f0f0f0; }
+
+.video-embed {
+  position: relative;
+  aspect-ratio: 16/9;
+  border-radius: var(--rayon);
+  overflow: hidden;
+  background: #000;
+}
+
+.video-embed iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.video-source {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  text-align: right;
+}
+.video-source a {
+  color: var(--couleur-primaire);
+  text-decoration: none;
+}
+.video-source a:hover { text-decoration: underline; }

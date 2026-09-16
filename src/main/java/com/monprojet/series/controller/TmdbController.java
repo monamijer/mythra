@@ -106,4 +106,9 @@ public class TmdbController {
     public Map<String, List<FournisseurResponse>> fournisseurs(@PathVariable Long tmdbId) {
         return tmdbService.listerFournisseurs(tmdbId);
     }
+
+    @GetMapping("/serie/{tmdbId}/videos")
+    public List<VideoResponse> videos(@PathVariable Long tmdbId) {
+        return tmdbService.listerVideos(tmdbId);
+    }
 }

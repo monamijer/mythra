@@ -483,6 +483,77 @@ async function chargerFournisseurs(serie, tmdbId) {
   `;
 }
 
+async function chargerVideos(serie, tmdbId) {
+  const conteneur = document.getElementById("videos-detail");
+  if (!conteneur) return;
+
+  if (!tmdbId) {
+    conteneur.innerHTML = messageVide("Aucune bande-annonce disponible (série ajoutée manuellement).");
+    return;
+  }
+
+  conteneur.innerHTML = messageChargement("Recherche de la bande-annonce...");
+
+  let videos;
+  try {
+    videos = await appelApi(`${API}/tmdb/serie/${tmdbId}/videos`);
+  } catch (err) {
+    conteneur.innerHTML = messageErreur(err.message);
+    return;
+  }
+
+  if (!Array.isArray(videos) || videos.length === 0) {
+    conteneur.innerHTML = messageVide("Aucune bande-annonce disponible pour cette série.");
+    return;
+  }
+
+  // On affiche d'abord l'aperçu cliquable de la meilleure vidéo
+  const principale = videos[0];
+  const autres = videos.slice(1, 4); // max 3 alternatives
+
+  conteneur.innerHTML = `
+    <div class="video-principale">
+      <button type="button" class="video-apercu" data-video-key="${principale.cle}" data-video-embed="${principale.embedUrl}">
+        <img src="https://img.youtube.com/vi/${principale.cle}/hqdefault.jpg" alt="Aperçu : ${principale.nom}">
+        <span class="play-overlay" aria-hidden="true">▶</span>
+        <span class="video-titre">${principale.nom}</span>
+      </button>
+    </div>
+    ${autres.length > 0 ? `
+      <div class="videos-alternatives">
+        <span class="meta">Autres vidéos :</span>
+        ${autres.map(v => `
+          <button type="button" class="video-miniature" data-video-key="${v.cle}" data-video-embed="${v.embedUrl}" title="${v.nom}">
+            ${v.type}
+          </button>
+        `).join("")}
+      </div>
+    ` : ""}
+  `;
+
+  // Au clic : remplacer par l'iframe YouTube
+  conteneur.querySelectorAll("[data-video-embed]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const embedUrl = btn.dataset.videoEmbed;
+      const key = btn.dataset.videoKey;
+      conteneur.innerHTML = `
+        <div class="video-embed">
+          <iframe
+            src="${embedUrl}?autoplay=1&rel=0"
+            title="Bande-annonce"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+          <p class="video-source">
+            <a href="https://www.youtube.com/watch?v=${key}" target="_blank" rel="noopener">Ouvrir sur YouTube ↗</a>
+          </p>
+        </div>
+      `;
+    });
+  });
+}
+
 async function ouvrirDetailSerie(serie) {
   const contenu = document.getElementById("detail-contenu");
   contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageChargement();
@@ -503,6 +574,10 @@ async function ouvrirDetailSerie(serie) {
   }
 
     let html = `<h2 id="titre-detail">${serie.titre}</h2>
+    <section class="bloc-video">
+      <h3>Bande-annonce</h3>
+      <div id="videos-detail" aria-live="polite"></div>
+    </section>
     <section class="bloc-fournisseurs">
       <h3>Où regarder ?</h3>
       <div id="fournisseurs-detail" aria-live="polite"></div>
@@ -531,6 +606,7 @@ async function ouvrirDetailSerie(serie) {
   contenu.innerHTML = html;
 
    chargerFournisseurs(serie, serie.tmdbId);
+  chargerVideos(serie, serie.tmdbId);
    
   contenu.querySelectorAll(".check-vu").forEach((checkbox) => {
     checkbox.addEventListener("change", async (e) => {
