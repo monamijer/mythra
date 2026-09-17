@@ -754,7 +754,7 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
     const boutonImport = avecImport
       ? `<button class="btn-importer" data-tmdb-id="${serie.tmdbId}">Importer</button>`
       : "";
-    const carte = creerElement(`
+        const carte = creerElement(`
       <div class="serie-card">
         <img src="${serie.imageUrl || IMAGE_PLACEHOLDER}" alt="Affiche de ${serie.titre}">
         <div class="contenu">
@@ -783,8 +783,101 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
       });
     }
 
+    // Clic sur la carte (sauf bouton Importer) → ouvre la fiche TMDB
+    carte.addEventListener("click", (e) => {
+      if (e.target.closest(".btn-importer")) return;
+      ouvrirDetailTmdb(serie);
+    });
+
     conteneur.appendChild(carte);
   }
+}
+
+async function ouvrirDetailTmdb(serieTmdb) {
+  const contenu = document.getElementById("detail-contenu");
+  contenu.innerHTML = `<h2 id="titre-detail">${serieTmdb.titre}</h2>` + messageChargement();
+  ouvrirModale();
+
+  // 1. Charger les détails et le casting EN PARALLÈLE
+  let detail, credits;
+  try {
+    [detail, credits] = await Promise.all([
+      appelApi(`${API}/tmdb/serie/${serieTmdb.tmdbId}`),
+      appelApi(`${API}/tmdb/serie/${serieTmdb.tmdbId}/credits`),
+    ]);
+  } catch (err) {
+    contenu.innerHTML = `<h2 id="titre-detail">${serieTmdb.titre}</h2>` + messageErreur(err.message);
+    return;
+  }
+
+  const imageUrl = detail.imageUrl || IMAGE_PLACEHOLDER;
+  const annee = detail.dateDiffusion ? detail.dateDiffusion.substring(0, 4) : "—";
+  const note = detail.note ? `⭐ ${detail.note.toFixed(1)} / 10` : "Pas encore noté";
+  const description = detail.description && detail.description.trim()
+    ? detail.description
+    : "Aucune description disponible pour cette série.";
+
+  // Casting : on garde les 8 premiers
+  const casting = Array.isArray(credits) ? credits.slice(0, 8) : [];
+
+  contenu.innerHTML = `
+    <h2 id="titre-detail">${detail.titre}</h2>
+
+    <div class="tmdb-fiche">
+      <img src="${imageUrl}" alt="Affiche de ${detail.titre}" class="tmdb-fiche-affiche">
+      <div class="tmdb-fiche-meta">
+        <p><strong>${annee}</strong> · ${note}</p>
+        <p class="tmdb-fiche-desc">${description}</p>
+        <div class="tmdb-fiche-actions">
+          <button class="btn-importer" id="btn-importer-modal" data-tmdb-id="${detail.tmdbId}">
+            Importer dans ma liste
+          </button>
+          <a class="btn-tmdb-externe"
+             href="https://www.themoviedb.org/tv/${detail.tmdbId}"
+             target="_blank" rel="noopener">
+            Voir sur TMDB ↗
+          </a>
+        </div>
+      </div>
+    </div>
+
+    ${casting.length > 0 ? `
+      <section class="bloc-casting">
+        <h3>Casting principal</h3>
+        <div class="casting-liste">
+          ${casting.map((m) => `
+            <div class="casting-item">
+              <img src="${m.photoUrl || IMAGE_PLACEHOLDER}" alt="${m.nom}">
+              <div class="casting-nom">${m.nom}</div>
+              <div class="casting-role">${m.personnage || ""}</div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    ` : ""}
+  `;
+
+  // Attache les placeholders aux images
+  contenu.querySelectorAll("img").forEach(attacherPlaceholder);
+
+  // Bouton Importer
+  document.getElementById("btn-importer-modal").addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Import...";
+    try {
+      await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/tmdb/importer/${detail.tmdbId}`, {
+        method: "POST",
+      });
+      btn.textContent = "Importé ✓";
+      // Rafraîchit la liste des séries perso en arrière-plan
+      chargerMesSeries();
+    } catch (err) {
+      alert(err.message);
+      btn.disabled = false;
+      btn.textContent = "Importer dans ma liste";
+    }
+  });
 }
 
 function construireUrlTmdb(requete, page) {
