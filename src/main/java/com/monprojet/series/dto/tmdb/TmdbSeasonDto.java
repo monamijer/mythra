@@ -8,5 +8,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public record TmdbSeasonDto(
         @JsonProperty("season_number") Integer numeroSaison,
         @JsonProperty("episode_count") Integer nombreEpisodes,
+        @JsonProperty("air_date") String dateDiffusion,
         String name
 ) {}
