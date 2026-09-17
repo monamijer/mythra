@@ -100,7 +100,7 @@
           <button type="submit">Ajouter</button>
         </form>
 
-        <div class="card form-inline">
+                <div class="card form-inline">
           <label for="select-tri" class="sr-only">Trier par</label>
           <select id="select-tri">
             <option value="titre-asc">Titre (A→Z)</option>
@@ -113,6 +113,15 @@
 
           <label for="input-filtre-genre" class="sr-only">Filtrer par genre</label>
           <input type="text" id="input-filtre-genre" placeholder="Filtrer par genre...">
+
+          <label for="select-filtre-statut" class="sr-only">Filtrer par statut</label>
+          <select id="select-filtre-statut">
+            <option value="">Tous les statuts</option>
+            <option value="A_VOIR">À voir</option>
+            <option value="EN_COURS">En cours</option>
+            <option value="TERMINEE">Terminée</option>
+            <option value="ABANDONNEE">Abandonnée</option>
+          </select>
         </div>
 
         <div id="liste-series" class="grid" aria-live="polite"></div>

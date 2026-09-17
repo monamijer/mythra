@@ -218,6 +218,27 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 let seriesEnMemoire = [];
 
+let filtreStatut = ""; // "" = tous les statuts
+
+const LIBELLES_STATUT = {
+  A_VOIR: "À voir",
+  EN_COURS: "En cours",
+  TERMINEE: "Terminée",
+  ABANDONNEE: "Abandonnée",
+};
+
+// Calcule le statut "auto" quand l'utilisateur n'a rien forcé
+function statutAuto(serie, progression) {
+  if (!progression || progression.episodesTotal === 0) return "A_VOIR";
+  if (progression.pourcentage >= 100) return "TERMINEE";
+  if (progression.episodesVus > 0) return "EN_COURS";
+  return "A_VOIR";
+}
+
+function statutEffectif(serie, progression) {
+  return serie.statutVisionnage || statutAuto(serie, progression);
+}
+
 async function chargerMesSeries() {
   const conteneur = document.getElementById("liste-series");
   conteneur.innerHTML = messageChargement();
@@ -260,6 +281,9 @@ function trierEtFiltrerSeries() {
   if (filtreGenre) {
     liste = liste.filter((item) => (item.serie.genre || "").toLowerCase().includes(filtreGenre));
   }
+  if (filtreStatut) {
+    liste = liste.filter((item) => statutEffectif(item.serie, item.progression) === filtreStatut);
+  }
 
   const comparateurs = {
     "titre-asc": (a, b) => a.serie.titre.localeCompare(b.serie.titre),
@@ -284,18 +308,33 @@ function rendreMesSeries() {
 
   conteneur.innerHTML = "";
   for (const { serie, progression } of liste) {
+        const statut = statutEffectif(serie, progression);
+    const statutForce = !!serie.statutVisionnage;
     const carte = creerElement(`
       <div class="serie-card" data-id="${serie.id}">
         <img src="${serie.imageUrl || IMAGE_PLACEHOLDER}" alt="Affiche de ${serie.titre}">
         <div class="contenu">
           <h3>${serie.titre}</h3>
           <span class="meta">${serie.genre || ''} ${serie.anneeSortie ? '· ' + serie.anneeSortie : ''}</span>
+          <span class="badge-statut statut-${statut.toLowerCase()}" title="${statutForce ? 'Statut choisi manuellement' : 'Statut calculé automatiquement'}">
+            ${LIBELLES_STATUT[statut] || statut}${statutForce ? "" : " (auto)"}
+          </span>
           ${progression ? `
             <div class="barre-progression">
               <div class="remplissage" style="width:${progression.pourcentage}%"></div>
             </div>
             <span class="meta">${progression.episodesVus}/${progression.episodesTotal} épisodes</span>
           ` : ''}
+          <div class="statut-selecteur">
+            <label for="statut-${serie.id}" class="sr-only">Changer le statut</label>
+            <select class="select-statut-carte" data-id="${serie.id}" id="statut-${serie.id}">
+              <option value="">Auto</option>
+              <option value="A_VOIR" ${statut === "A_VOIR" && statutForce ? "selected" : ""}>À voir</option>
+              <option value="EN_COURS" ${statut === "EN_COURS" && statutForce ? "selected" : ""}>En cours</option>
+              <option value="TERMINEE" ${statut === "TERMINEE" && statutForce ? "selected" : ""}>Terminée</option>
+              <option value="ABANDONNEE" ${statut === "ABANDONNEE" && statutForce ? "selected" : ""}>Abandonnée</option>
+            </select>
+          </div>
           <div class="actions-carte">
             <button class="btn-editer" data-id="${serie.id}" data-action="editer">Éditer</button>
             <button class="btn-supprimer" data-id="${serie.id}" data-action="supprimer">Supprimer</button>
@@ -305,6 +344,20 @@ function rendreMesSeries() {
     `);
 
     attacherPlaceholder(carte.querySelector("img"));
+        carte.querySelector(".select-statut-carte").addEventListener("change", async (e) => {
+      e.stopPropagation();
+      const valeur = e.target.value; // "" = auto, sinon un statut
+      try {
+        await appelApi(
+          `${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}/statut${valeur ? `?statut=${valeur}` : ""}`,
+          { method: "PATCH" }
+        );
+        chargerMesSeries();
+      } catch (err) {
+        alert(err.message);
+        chargerMesSeries(); // rollback visuel
+      }
+    });
 
     carte.querySelector('[data-action="supprimer"]').addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -320,13 +373,20 @@ function rendreMesSeries() {
       ouvrirEditionSerie(serie);
     });
 
-    carte.addEventListener("click", () => ouvrirDetailSerie(serie));
+        carte.addEventListener("click", (e) => {
+      if (e.target.closest(".statut-selecteur")) return;
+      ouvrirDetailSerie(serie);
+    });
     conteneur.appendChild(carte);
   }
 }
 
 document.getElementById("select-tri").addEventListener("change", rendreMesSeries);
 document.getElementById("input-filtre-genre").addEventListener("input", rendreMesSeries);
+document.getElementById("select-filtre-statut").addEventListener("change", (e) => {
+  filtreStatut = e.target.value;
+  rendreMesSeries();
+});
 
 document.getElementById("form-ajout-serie").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -361,8 +421,17 @@ function ouvrirEditionSerie(serie) {
       <label for="edit-note" class="sr-only">Note</label>
       <input id="edit-note" type="number" value="${serie.note ?? ''}" placeholder="Note" min="0" max="10" step="0.1">
 
-      <label for="edit-image" class="sr-only">URL de l'image</label>
+            <label for="edit-image" class="sr-only">URL de l'image</label>
       <input id="edit-image" type="url" value="${serie.imageUrl || ''}" placeholder="URL de l'affiche">
+
+      <label for="edit-statut" class="sr-only">Statut de visionnage</label>
+      <select id="edit-statut">
+        <option value="">Auto (calculé)</option>
+        <option value="A_VOIR" ${serie.statutVisionnage === "A_VOIR" ? "selected" : ""}>À voir</option>
+        <option value="EN_COURS" ${serie.statutVisionnage === "EN_COURS" ? "selected" : ""}>En cours</option>
+        <option value="TERMINEE" ${serie.statutVisionnage === "TERMINEE" ? "selected" : ""}>Terminée</option>
+        <option value="ABANDONNEE" ${serie.statutVisionnage === "ABANDONNEE" ? "selected" : ""}>Abandonnée</option>
+      </select>
 
       <button type="submit">Enregistrer</button>
     </form>
@@ -377,6 +446,7 @@ function ouvrirEditionSerie(serie) {
       anneeSortie: document.getElementById("edit-annee").value || null,
       note: document.getElementById("edit-note").value || null,
       imageUrl: document.getElementById("edit-image").value || null,
+      statutVisionnage: document.getElementById("edit-statut").value || null,
     };
     try {
       await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}`, {
@@ -487,8 +557,13 @@ async function chargerVideos(serie, tmdbId) {
   const conteneur = document.getElementById("videos-detail");
   if (!conteneur) return;
 
+  // Pas de tmdbId → série ajoutée manuellement
   if (!tmdbId) {
-    conteneur.innerHTML = messageVide("Aucune bande-annonce disponible (série ajoutée manuellement).");
+    conteneur.innerHTML = `
+      <p class="aucun-resultat" role="status">
+        Aucune bande-annonce disponible pour cette série ajoutée manuellement.
+      </p>
+    `;
     return;
   }
 
@@ -503,13 +578,26 @@ async function chargerVideos(serie, tmdbId) {
   }
 
   if (!Array.isArray(videos) || videos.length === 0) {
-    conteneur.innerHTML = messageVide("Aucune bande-annonce disponible pour cette série.");
+    // Fallback : lien vers YouTube avec le titre de la série
+    const recherche = encodeURIComponent(`${serie.titre} bande annonce VF`);
+    conteneur.innerHTML = `
+      <p class="aucun-resultat" role="status">
+        TMDB ne référence pas de bande-annonce officielle pour cette série.
+      </p>
+      <p style="text-align:center;margin-top:0.5rem">
+        <a class="btn-youtube-externe"
+           href="https://www.youtube.com/results?search_query=${recherche}"
+           target="_blank" rel="noopener">
+          🔍 Chercher sur YouTube
+        </a>
+      </p>
+    `;
     return;
   }
 
-  // On affiche d'abord l'aperçu cliquable de la meilleure vidéo
+  // ... reste identique (aperçu + iframe au clic)
   const principale = videos[0];
-  const autres = videos.slice(1, 4); // max 3 alternatives
+  const autres = videos.slice(1, 4);
 
   conteneur.innerHTML = `
     <div class="video-principale">
@@ -531,7 +619,6 @@ async function chargerVideos(serie, tmdbId) {
     ` : ""}
   `;
 
-  // Au clic : remplacer par l'iframe YouTube
   conteneur.querySelectorAll("[data-video-embed]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const embedUrl = btn.dataset.videoEmbed;
