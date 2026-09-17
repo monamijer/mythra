@@ -42,6 +42,15 @@ public class Serie {
     // manually created)
     private Long tmdbId;
 
+    /**
+     * Statut manuel choisi par l'utilisateur.
+     * Null = statut non forcé → le front peut afficher un statut auto calculé.
+     * Non-null = l'utilisateur a explicitement choisi (ne pas écraser).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private StatutVisionnage statutVisionnage;
+
     @Builder.Default
     @OneToMany(mappedBy = "serie", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Saison> saisons = new ArrayList<>();
