@@ -1,6 +1,4 @@
 // SerieMapper.java
-// Plain static methods on purpose: four fields to map, MapStruct would be
-// ceremony without payoff here (YAGNI).
 package com.monprojet.series.mapper;
 
 import com.monprojet.series.dto.request.SerieRequest;
@@ -19,13 +17,21 @@ public final class SerieMapper {
                 .anneeSortie(request.anneeSortie())
                 .note(request.note())
                 .imageUrl(request.imageUrl())
+                .statutVisionnage(request.statutVisionnage())
                 .build();
     }
 
     public static SerieResponse toResponse(Serie serie) {
         return new SerieResponse(
-                serie.getId(), serie.getTitre(), serie.getGenre(), serie.getDescription(),
-                serie.getAnneeSortie(), serie.getNote(), serie.getImageUrl(), serie.getTmdbId()
+                serie.getId(),
+                serie.getTitre(),
+                serie.getGenre(),
+                serie.getDescription(),
+                serie.getAnneeSortie(),
+                serie.getNote(),
+                serie.getImageUrl(),
+                serie.getTmdbId(),
+                serie.getStatutVisionnage() == null ? null : serie.getStatutVisionnage().name()
         );
     }
 }
