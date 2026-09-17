@@ -2,6 +2,7 @@
 package com.monprojet.series.service;
 
 import com.monprojet.series.entity.Serie;
+import com.monprojet.series.entity.StatutVisionnage;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.exception.ResourceNotFoundException;
 import com.monprojet.series.repository.SerieRepository;
@@ -24,9 +25,11 @@ public class SerieService {
         return serieRepository.findByUtilisateurId(utilisateurId);
     }
 
-    // Returns 404 whether the series doesn't exist OR belongs to another user —
-    // this indistinguishability is intentional, it prevents leaking existence
-    // of another user's data through error message differences.
+    @Transactional(readOnly = true)
+    public List<Serie> listerParStatut(Long utilisateurId, StatutVisionnage statut) {
+        return serieRepository.findByUtilisateurIdAndStatutVisionnage(utilisateurId, statut);
+    }
+
     @Transactional(readOnly = true)
     public Serie obtenirParId(Long id, Long utilisateurId) {
         return serieRepository.findByIdAndUtilisateurId(id, utilisateurId)
@@ -47,7 +50,21 @@ public class SerieService {
         existante.setAnneeSortie(donnees.getAnneeSortie());
         existante.setNote(donnees.getNote());
         existante.setImageUrl(donnees.getImageUrl());
+        // Le statut peut être modifié via la modale d'édition OU l'endpoint dédié
+        if (donnees.getStatutVisionnage() != null) {
+            existante.setStatutVisionnage(donnees.getStatutVisionnage());
+        }
         return serieRepository.save(existante);
+    }
+
+    /**
+     * Endpoint dédié au changement rapide de statut (bouton sur la carte).
+     * Si statut == null → remet le statut en mode "auto" (non forcé).
+     */
+    public Serie changerStatut(Long id, Long utilisateurId, StatutVisionnage statut) {
+        Serie serie = obtenirParId(id, utilisateurId);
+        serie.setStatutVisionnage(statut);
+        return serieRepository.save(serie);
     }
 
     public void supprimer(Long id, Long utilisateurId) {
@@ -55,9 +72,6 @@ public class SerieService {
         serieRepository.delete(serie);
     }
 
-    // Used by AdminController — deliberately bypasses ownership filtering.
-    // Kept in this service (not duplicated in AdminController) so the admin
-    // path stays a thin wrapper rather than a second implementation to maintain.
     @Transactional(readOnly = true)
     public List<Serie> listerToutesAdmin() {
         return serieRepository.findAll();
