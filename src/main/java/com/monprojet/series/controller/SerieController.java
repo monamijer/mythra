@@ -4,6 +4,7 @@ package com.monprojet.series.controller;
 import com.monprojet.series.dto.request.SerieRequest;
 import com.monprojet.series.dto.response.SerieResponse;
 import com.monprojet.series.entity.Serie;
+import com.monprojet.series.entity.StatutVisionnage;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.mapper.SerieMapper;
 import com.monprojet.series.service.SerieService;
@@ -28,9 +29,14 @@ public class SerieController {
     private final UtilisateurService utilisateurService;
 
     @GetMapping
-    public List<SerieResponse> lister(@PathVariable Long userId) {
+    public List<SerieResponse> lister(
+            @PathVariable Long userId,
+            @RequestParam(required = false) StatutVisionnage statut) {
         verifierAcces(userId);
-        return serieService.listerToutes(userId).stream().map(SerieMapper::toResponse).toList();
+        var series = (statut == null)
+                ? serieService.listerToutes(userId)
+                : serieService.listerParStatut(userId, statut);
+        return series.stream().map(SerieMapper::toResponse).toList();
     }
 
     @GetMapping("/{id}")
@@ -54,6 +60,19 @@ public class SerieController {
         return SerieMapper.toResponse(serieService.modifier(id, userId, SerieMapper.toEntity(request)));
     }
 
+    /**
+     * Endpoint dédié au changement rapide de statut de visionnage.
+     * Statut null → repasse en "auto" (calculé par la progression).
+     */
+    @PatchMapping("/{id}/statut")
+    public SerieResponse changerStatut(
+            @PathVariable Long userId,
+            @PathVariable Long id,
+            @RequestParam(required = false) StatutVisionnage statut) {
+        verifierAcces(userId);
+        return SerieMapper.toResponse(serieService.changerStatut(id, userId, statut));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> supprimer(@PathVariable Long userId, @PathVariable Long id) {
         verifierAcces(userId);
@@ -61,7 +80,6 @@ public class SerieController {
         return ResponseEntity.noContent().build();
     }
 
-    // Admins bypass the ownership check entirely; regular users must match {userId}.
     private void verifierAcces(Long userId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
