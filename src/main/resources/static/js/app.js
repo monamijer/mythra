@@ -39,23 +39,19 @@ function deconnexion() {
 
 document.querySelectorAll(".auth-tab").forEach((btn) => {
   btn.addEventListener("click", () => {
-    // 1. Désactive tous les onglets
     document.querySelectorAll(".auth-tab").forEach((b) => {
       b.classList.remove("active");
       b.setAttribute("aria-selected", "false");
     });
-    // 2. Cache tous les panels (via classe + attribut, ceinture + bretelles)
     document.querySelectorAll(".auth-panel").forEach((p) => {
       p.classList.remove("active");
       p.setAttribute("hidden", "");
     });
-    // 3. Active le bon
     btn.classList.add("active");
     btn.setAttribute("aria-selected", "true");
     const panel = document.getElementById(`form-${btn.dataset.auth}`);
     panel.classList.add("active");
     panel.removeAttribute("hidden");
-    // 4. Reset du message d'erreur
     document.getElementById("login-erreur").textContent = "";
   });
 });
@@ -147,7 +143,6 @@ document.getElementById("form-inscription").addEventListener("submit", async (e)
   succesEl.classList.add("hidden");
   succesEl.textContent = "";
 
-  // Vérification côté client
   if (motDePasse !== confirmation) {
     erreurEl.textContent = "Les mots de passe ne correspondent pas.";
     return;
@@ -163,15 +158,10 @@ document.getElementById("form-inscription").addEventListener("submit", async (e)
       body: JSON.stringify({ pseudo, email, motDePasse }),
     });
 
-    // Le backend renvoie token=null + statut=EN_ATTENTE
-    // → on affiche le message d'attente et on NE connecte PAS
     succesEl.textContent = data.message || "Compte créé. En attente d'approbation par un administrateur.";
     succesEl.classList.remove("hidden");
-
-    // Reset du formulaire
     e.target.reset();
 
-    // Bascule automatiquement sur Connexion après 3 secondes
     setTimeout(() => {
       document.getElementById("tab-connexion").click();
     }, 3000);
@@ -207,7 +197,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
       ongletDecouvrirCharge = true;
       chargerCategorieTmdb("populaires", document.querySelector(".souscat-btn[data-cat='populaires']"));
     }
-        if (btn.dataset.tab === "admin") {
+    if (btn.dataset.tab === "admin") {
       chargerStatsAdmin();
       chargerListeAdmin();
     }
@@ -217,8 +207,7 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 // --- My series ---
 
 let seriesEnMemoire = [];
-
-let filtreStatut = ""; // "" = tous les statuts
+let filtreStatut = "";
 
 const LIBELLES_STATUT = {
   A_VOIR: "À voir",
@@ -227,7 +216,6 @@ const LIBELLES_STATUT = {
   ABANDONNEE: "Abandonnée",
 };
 
-// Calcule le statut "auto" quand l'utilisateur n'a rien forcé
 function statutAuto(serie, progression) {
   if (!progression || progression.episodesTotal === 0) return "A_VOIR";
   if (progression.pourcentage >= 100) return "TERMINEE";
@@ -264,9 +252,8 @@ async function chargerMesSeries() {
     let progression = null;
     try {
       progression = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/progression/${serie.id}`);
-      // Si la réponse est neutre (0 épisodes), on n'affiche pas de barre
       if (!progression || progression.episodesTotal === 0) progression = null;
-    } catch { /* pas de progression → pas grave */ }
+    } catch { /* pas de progression */ }
     seriesEnMemoire.push({ serie, progression });
   }
 
@@ -308,7 +295,7 @@ function rendreMesSeries() {
 
   conteneur.innerHTML = "";
   for (const { serie, progression } of liste) {
-        const statut = statutEffectif(serie, progression);
+    const statut = statutEffectif(serie, progression);
     const statutForce = !!serie.statutVisionnage;
     const carte = creerElement(`
       <div class="serie-card" data-id="${serie.id}">
@@ -344,9 +331,9 @@ function rendreMesSeries() {
     `);
 
     attacherPlaceholder(carte.querySelector("img"));
-        carte.querySelector(".select-statut-carte").addEventListener("change", async (e) => {
+    carte.querySelector(".select-statut-carte").addEventListener("change", async (e) => {
       e.stopPropagation();
-      const valeur = e.target.value; // "" = auto, sinon un statut
+      const valeur = e.target.value;
       try {
         await appelApi(
           `${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}/statut${valeur ? `?statut=${valeur}` : ""}`,
@@ -355,7 +342,7 @@ function rendreMesSeries() {
         chargerMesSeries();
       } catch (err) {
         alert(err.message);
-        chargerMesSeries(); // rollback visuel
+        chargerMesSeries();
       }
     });
 
@@ -373,7 +360,7 @@ function rendreMesSeries() {
       ouvrirEditionSerie(serie);
     });
 
-        carte.addEventListener("click", (e) => {
+    carte.addEventListener("click", (e) => {
       if (e.target.closest(".statut-selecteur")) return;
       ouvrirDetailSerie(serie);
     });
@@ -421,7 +408,7 @@ function ouvrirEditionSerie(serie) {
       <label for="edit-note" class="sr-only">Note</label>
       <input id="edit-note" type="number" value="${serie.note ?? ''}" placeholder="Note" min="0" max="10" step="0.1">
 
-            <label for="edit-image" class="sr-only">URL de l'image</label>
+      <label for="edit-image" class="sr-only">URL de l'image</label>
       <input id="edit-image" type="url" value="${serie.imageUrl || ''}" placeholder="URL de l'affiche">
 
       <label for="edit-statut" class="sr-only">Statut de visionnage</label>
@@ -502,15 +489,76 @@ document.getElementById("panneau-detail").addEventListener("click", (e) => {
   if (e.target.id === "panneau-detail") fermerModale();
 });
 
+// --- Formattage dates / infos saisons ---
+
+/** Formate une date ISO (YYYY-MM-DD) en français. Retourne null si invalide. */
+function formatDate(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
+/**
+ * Construit la ligne d'infos "saisons + épisodes + statut" d'une série TMDB.
+ * Gère les cas : terminée, en cours, annulée, inconnue.
+ */
+function construireInfosSerie(detail) {
+  const parties = [];
+
+  // Saisons / épisodes
+  if (detail.nombreSaisons) {
+    parties.push(`${detail.nombreSaisons} saison${detail.nombreSaisons > 1 ? "s" : ""}`);
+  }
+  if (detail.nombreEpisodes) {
+    parties.push(`${detail.nombreEpisodes} épisode${detail.nombreEpisodes > 1 ? "s" : ""}`);
+  }
+
+  const ligneSaisons = parties.join(" · ");
+
+  // Statut + date du dernier épisode
+  const dateDebut = formatDate(detail.dateDiffusion);
+  const dateFin = formatDate(detail.dateDernierEpisode);
+  const statut = (detail.statut || "").toLowerCase();
+
+  let ligneStatut = "";
+  if (statut === "ended") {
+    ligneStatut = dateFin
+      ? `🟢 Terminée — dernier épisode le ${dateFin}`
+      : "🟢 Terminée";
+  } else if (statut === "running" || statut === "returning series") {
+    if (dateFin) {
+      // La dernière diffusion peut être dans le futur pour un prochain épisode
+      const estFutur = new Date(detail.dateDernierEpisode) > new Date();
+      ligneStatut = estFutur
+        ? `🟡 En cours — prochain épisode le ${dateFin}`
+        : `🟡 En cours — dernier épisode le ${dateFin}`;
+    } else {
+      ligneStatut = "🟡 En cours de diffusion";
+    }
+  } else if (statut === "canceled") {
+    ligneStatut = dateFin
+      ? `🔴 Annulée — dernier épisode le ${dateFin}`
+      : "🔴 Annulée";
+  } else if (statut === "in production") {
+    ligneStatut = "🟠 En production";
+  } else {
+    ligneStatut = dateFin ? `Dernier épisode le ${dateFin}` : "";
+  }
+
+  return {
+    ligneSaisons,
+    ligneStatut,
+    dateDebut,
+  };
+}
+
 async function chargerFournisseurs(serie, tmdbId) {
   const conteneur = document.getElementById("fournisseurs-detail");
   if (!conteneur) return;
 
-  // Si la série n'a pas de tmdbId (créée manuellement), on affiche un message
   if (!tmdbId) {
-    conteneur.innerHTML = messageVide(
-      "Aucune plateforme connue pour cette série (ajoutée manuellement)."
-    );
+    conteneur.innerHTML = messageVide("Aucune plateforme connue pour cette série (ajoutée manuellement).");
     return;
   }
 
@@ -524,14 +572,11 @@ async function chargerFournisseurs(serie, tmdbId) {
     return;
   }
 
-  // Priorité au pays FR, sinon premier pays dispo
   const pays = parPays.FR ? "FR" : Object.keys(parPays)[0];
   const fournisseurs = pays ? parPays[pays] : null;
 
   if (!fournisseurs || fournisseurs.length === 0) {
-    conteneur.innerHTML = messageVide(
-      "Aucune plateforme de streaming référencée pour cette série."
-    );
+    conteneur.innerHTML = messageVide("Aucune plateforme de streaming référencée pour cette série.");
     return;
   }
 
@@ -557,13 +602,8 @@ async function chargerVideos(serie, tmdbId) {
   const conteneur = document.getElementById("videos-detail");
   if (!conteneur) return;
 
-  // Pas de tmdbId → série ajoutée manuellement
   if (!tmdbId) {
-    conteneur.innerHTML = `
-      <p class="aucun-resultat" role="status">
-        Aucune bande-annonce disponible pour cette série ajoutée manuellement.
-      </p>
-    `;
+    conteneur.innerHTML = `<p class="aucun-resultat" role="status">Aucune bande-annonce disponible pour cette série ajoutée manuellement.</p>`;
     return;
   }
 
@@ -578,7 +618,6 @@ async function chargerVideos(serie, tmdbId) {
   }
 
   if (!Array.isArray(videos) || videos.length === 0) {
-    // Fallback : lien vers YouTube avec le titre de la série
     const recherche = encodeURIComponent(`${serie.titre} bande annonce VF`);
     conteneur.innerHTML = `
       <p class="aucun-resultat" role="status">
@@ -595,7 +634,6 @@ async function chargerVideos(serie, tmdbId) {
     return;
   }
 
-  // ... reste identique (aperçu + iframe au clic)
   const principale = videos[0];
   const autres = videos.slice(1, 4);
 
@@ -655,12 +693,11 @@ async function ouvrirDetailSerie(serie) {
   }
 
   if (!Array.isArray(saisons) || saisons.length === 0) {
-    contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>`
-      + messageVide("Aucune saison enregistrée pour cette série.");
+    contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageVide("Aucune saison enregistrée pour cette série.");
     return;
   }
 
-    let html = `<h2 id="titre-detail">${serie.titre}</h2>
+  let html = `<h2 id="titre-detail">${serie.titre}</h2>
     <section class="bloc-video">
       <h3>Bande-annonce</h3>
       <div id="videos-detail" aria-live="polite"></div>
@@ -692,9 +729,9 @@ async function ouvrirDetailSerie(serie) {
   }
   contenu.innerHTML = html;
 
-   chargerFournisseurs(serie, serie.tmdbId);
+  chargerFournisseurs(serie, serie.tmdbId);
   chargerVideos(serie, serie.tmdbId);
-   
+
   contenu.querySelectorAll(".check-vu").forEach((checkbox) => {
     checkbox.addEventListener("change", async (e) => {
       const episodeId = e.target.dataset.episodeId;
@@ -754,7 +791,7 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
     const boutonImport = avecImport
       ? `<button class="btn-importer" data-tmdb-id="${serie.tmdbId}">Importer</button>`
       : "";
-        const carte = creerElement(`
+    const carte = creerElement(`
       <div class="serie-card">
         <img src="${serie.imageUrl || IMAGE_PLACEHOLDER}" alt="Affiche de ${serie.titre}">
         <div class="contenu">
@@ -783,7 +820,6 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
       });
     }
 
-    // Clic sur la carte (sauf bouton Importer) → ouvre la fiche TMDB
     carte.addEventListener("click", (e) => {
       if (e.target.closest(".btn-importer")) return;
       ouvrirDetailTmdb(serie);
@@ -811,13 +847,14 @@ async function ouvrirDetailTmdb(serieTmdb) {
   }
 
   const imageUrl = detail.imageUrl || IMAGE_PLACEHOLDER;
-  const annee = detail.dateDiffusion ? detail.dateDiffusion.substring(0, 4) : "—";
   const note = detail.note ? `⭐ ${detail.note.toFixed(1)} / 10` : "Pas encore noté";
   const description = detail.description && detail.description.trim()
     ? detail.description
     : "Aucune description disponible pour cette série.";
 
-  // Casting : on garde les 8 premiers
+  // Infos saisons / épisodes / dates
+  const { ligneSaisons, ligneStatut, dateDebut } = construireInfosSerie(detail);
+
   const casting = Array.isArray(credits) ? credits.slice(0, 8) : [];
 
   contenu.innerHTML = `
@@ -826,7 +863,12 @@ async function ouvrirDetailTmdb(serieTmdb) {
     <div class="tmdb-fiche">
       <img src="${imageUrl}" alt="Affiche de ${detail.titre}" class="tmdb-fiche-affiche">
       <div class="tmdb-fiche-meta">
-        <p><strong>${annee}</strong> · ${note}</p>
+        <p class="tmdb-fiche-ligne1">
+          ${dateDebut ? `<strong>Première diffusion : ${dateDebut}</strong>` : ""}
+          ${note ? ` · ${note}` : ""}
+        </p>
+        ${ligneSaisons ? `<p class="tmdb-fiche-saisons">📺 ${ligneSaisons}</p>` : ""}
+        ${ligneStatut ? `<p class="tmdb-fiche-statut">${ligneStatut}</p>` : ""}
         <p class="tmdb-fiche-desc">${description}</p>
         <div class="tmdb-fiche-actions">
           <button class="btn-importer" id="btn-importer-modal" data-tmdb-id="${detail.tmdbId}">
@@ -857,10 +899,8 @@ async function ouvrirDetailTmdb(serieTmdb) {
     ` : ""}
   `;
 
-  // Attache les placeholders aux images
   contenu.querySelectorAll("img").forEach(attacherPlaceholder);
 
-  // Bouton Importer
   document.getElementById("btn-importer-modal").addEventListener("click", async (e) => {
     const btn = e.target;
     btn.disabled = true;
@@ -870,7 +910,6 @@ async function ouvrirDetailTmdb(serieTmdb) {
         method: "POST",
       });
       btn.textContent = "Importé ✓";
-      // Rafraîchit la liste des séries perso en arrière-plan
       chargerMesSeries();
     } catch (err) {
       alert(err.message);
@@ -905,13 +944,11 @@ async function chargerTmdb(url, requete) {
     return;
   }
 
-  // Backend renvoie un tableau simple : pas de pagination
   if (Array.isArray(reponse)) {
     afficherResultatsTmdb(reponse);
     return;
   }
 
-  // Backend renvoie un objet paginé : { resultats, page, totalPages, totalResultats }
   requeteTmdbCourante = { ...requete, page: reponse.page };
   afficherResultatsTmdb(reponse.resultats);
   afficherPagination(reponse.page, reponse.totalPages);
@@ -1131,7 +1168,7 @@ async function chargerListeAdmin() {
           <p class="meta">Statut : <strong class="statut-${u.statut.toLowerCase()}">${libellesStatut[u.statut] || u.statut}</strong></p>
           <p class="meta">Inscrit le : ${u.dateInscription ? new Date(u.dateInscription).toLocaleDateString("fr-FR") : "—"}</p>
         </div>
-               ${(() => {
+        ${(() => {
           const dernierAdmin = u.role === "ADMIN" && utilisateurs.filter(x => x.role === "ADMIN" && x.statut === "APPROUVE").length <= 1;
           return `
           <div class="admin-actions">
@@ -1202,7 +1239,6 @@ document.getElementById("btn-rafraichir-admin").addEventListener("click", () => 
   chargerStatsAdmin();
   chargerListeAdmin();
 });
-
 
 // --- Startup ---
 

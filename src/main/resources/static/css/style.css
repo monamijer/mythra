@@ -820,3 +820,143 @@ main { padding: var(--espace); max-width: 900px; margin: 0 auto; }
   background: white;
   cursor: pointer;
 }
+
+/* ===== Fiche TMDB (modale) ===== */
+
+.tmdb-fiche {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.tmdb-fiche-affiche {
+  width: 140px;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  border-radius: var(--rayon);
+  flex-shrink: 0;
+  background: #ddd;
+}
+
+.tmdb-fiche-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.tmdb-fiche-desc {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #444;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.tmdb-fiche-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.tmdb-fiche-actions .btn-importer {
+  min-height: 40px;
+  padding: 0 1rem;
+  font-size: 0.9rem;
+}
+
+.btn-tmdb-externe {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 1rem;
+  border-radius: var(--rayon);
+  background: #01b4e4; /* couleur officielle TMDB */
+  color: white;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.btn-tmdb-externe:hover { background: #0191b8; }
+
+/* ===== Casting ===== */
+
+.bloc-casting {
+  margin-top: 1rem;
+}
+
+.bloc-casting h3 {
+  font-size: 1rem;
+  color: var(--couleur-primaire);
+  margin-bottom: 0.75rem;
+}
+
+.casting-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.casting-item {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.casting-item img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto;
+  background: #ddd;
+}
+
+.casting-nom {
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.casting-role {
+  font-size: 0.75rem;
+  color: #777;
+  line-height: 1.2;
+}
+
+@media (max-width: 500px) {
+  .tmdb-fiche {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .tmdb-fiche-actions {
+    justify-content: center;
+  }
+}
+
+/* ===== Infos saisons / épisodes / dates sur la fiche TMDB ===== */
+
+.tmdb-fiche-ligne1 {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.tmdb-fiche-saisons {
+  font-size: 0.9rem;
+  color: var(--couleur-primaire);
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+.tmdb-fiche-statut {
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
+  margin-top: 0.2rem;
+}
