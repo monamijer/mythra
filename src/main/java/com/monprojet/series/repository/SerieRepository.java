@@ -2,6 +2,7 @@
 package com.monprojet.series.repository;
 
 import com.monprojet.series.entity.Serie;
+import com.monprojet.series.entity.StatutVisionnage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,6 +14,8 @@ public interface SerieRepository extends JpaRepository<Serie, Long> {
     Optional<Serie> findByTmdbId(Long tmdbId);
 
     List<Serie> findByUtilisateurId(Long utilisateurId);
+
+    List<Serie> findByUtilisateurIdAndStatutVisionnage(Long utilisateurId, StatutVisionnage statut);
 
     // Ownership-checked lookup: returns empty if the series exists but belongs to
     // someone else
