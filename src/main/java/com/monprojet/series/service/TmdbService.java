@@ -117,11 +117,19 @@ public class TmdbService {
         return wrapper.genres().stream().map(g -> new GenreResponse(g.id(), g.name())).toList();
     }
 
-    public TmdbSerieResponse obtenirDetail(Long tmdbId) {
+        public TmdbSerieResponse obtenirDetail(Long tmdbId) {
         TmdbSerieDetailDto detail = recupererDetail(tmdbId);
         return new TmdbSerieResponse(
-                detail.id(), detail.name(), detail.overview(),
-                detail.firstAirDate(), detail.voteAverage(), construireUrlImage(detail.posterPath())
+                detail.id(),
+                detail.name(),
+                detail.overview(),
+                detail.firstAirDate(),
+                detail.voteAverage(),
+                construireUrlImage(detail.posterPath()),
+                detail.lastAirDate(),
+                detail.numberOfSeasons(),
+                detail.numberOfEpisodes(),
+                detail.status()
         );
     }
 
