@@ -447,13 +447,17 @@ function ouvrirEditionSerie(serie) {
 
   document.getElementById("form-edition-serie").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const body = {
+        const body = {
       titre: document.getElementById("edit-titre").value,
       genre: document.getElementById("edit-genre").value || null,
       anneeSortie: document.getElementById("edit-annee").value || null,
       note: document.getElementById("edit-note").value || null,
       imageUrl: document.getElementById("edit-image").value || null,
       statutVisionnage: document.getElementById("edit-statut").value || null,
+      notePersonnelle: document.getElementById("edit-note-perso").value
+        ? parseInt(document.getElementById("edit-note-perso").value, 10)
+        : null,
+      critique: document.getElementById("edit-critique").value.trim() || null,
     };
     try {
       await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}`, {
