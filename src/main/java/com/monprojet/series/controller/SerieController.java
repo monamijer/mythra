@@ -1,6 +1,7 @@
 // SerieController.java
 package com.monprojet.series.controller;
 
+import com.monprojet.series.dto.request.AvisRequest;
 import com.monprojet.series.dto.request.SerieRequest;
 import com.monprojet.series.dto.response.SerieResponse;
 import com.monprojet.series.entity.Serie;
@@ -60,10 +61,6 @@ public class SerieController {
         return SerieMapper.toResponse(serieService.modifier(id, userId, SerieMapper.toEntity(request)));
     }
 
-    /**
-     * Endpoint dédié au changement rapide de statut de visionnage.
-     * Statut null → repasse en "auto" (calculé par la progression).
-     */
     @PatchMapping("/{id}/statut")
     public SerieResponse changerStatut(
             @PathVariable Long userId,
@@ -71,6 +68,22 @@ public class SerieController {
             @RequestParam(required = false) StatutVisionnage statut) {
         verifierAcces(userId);
         return SerieMapper.toResponse(serieService.changerStatut(id, userId, statut));
+    }
+
+    /**
+     * Endpoint dédié à la note personnelle et à la critique.
+     * Body : { notePersonnelle: 1-10, critique: "..." }
+     * Valeur null = effacer le champ correspondant.
+     */
+    @PatchMapping("/{id}/avis")
+    public SerieResponse changerAvis(
+            @PathVariable Long userId,
+            @PathVariable Long id,
+            @Valid @RequestBody AvisRequest request) {
+        verifierAcces(userId);
+        return SerieMapper.toResponse(
+                serieService.changerAvis(id, userId, request.notePersonnelle(), request.critique())
+        );
     }
 
     @DeleteMapping("/{id}")

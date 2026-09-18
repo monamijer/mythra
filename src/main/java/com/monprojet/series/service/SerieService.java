@@ -50,20 +50,29 @@ public class SerieService {
         existante.setAnneeSortie(donnees.getAnneeSortie());
         existante.setNote(donnees.getNote());
         existante.setImageUrl(donnees.getImageUrl());
-        // Le statut peut être modifié via la modale d'édition OU l'endpoint dédié
         if (donnees.getStatutVisionnage() != null) {
             existante.setStatutVisionnage(donnees.getStatutVisionnage());
         }
+        // Note personnelle + critique (acceptés null pour effacer)
+        existante.setNotePersonnelle(donnees.getNotePersonnelle());
+        existante.setCritique(donnees.getCritique());
         return serieRepository.save(existante);
     }
 
-    /**
-     * Endpoint dédié au changement rapide de statut (bouton sur la carte).
-     * Si statut == null → remet le statut en mode "auto" (non forcé).
-     */
     public Serie changerStatut(Long id, Long utilisateurId, StatutVisionnage statut) {
         Serie serie = obtenirParId(id, utilisateurId);
         serie.setStatutVisionnage(statut);
+        return serieRepository.save(serie);
+    }
+
+    /**
+     * Change uniquement la note personnelle et/ou la critique.
+     * Une valeur null efface le champ correspondant.
+     */
+    public Serie changerAvis(Long id, Long utilisateurId, Integer notePersonnelle, String critique) {
+        Serie serie = obtenirParId(id, utilisateurId);
+        serie.setNotePersonnelle(notePersonnelle);
+        serie.setCritique(critique);
         return serieRepository.save(serie);
     }
 
