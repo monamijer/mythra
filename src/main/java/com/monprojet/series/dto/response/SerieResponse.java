@@ -10,5 +10,7 @@ public record SerieResponse(
         Double note,
         String imageUrl,
         Long tmdbId,
-        String statutVisionnage
+        String statutVisionnage,
+        Integer notePersonnelle,
+        String critique
 ) {}

@@ -51,6 +51,18 @@ public class Serie {
     @Column(length = 20)
     private StatutVisionnage statutVisionnage;
 
+    /**
+     * Note personnelle de l'utilisateur (1 à 10).
+     * Null = pas encore notée. Différente de {@code note} qui est la note TMDB.
+     */
+    private Integer notePersonnelle;
+
+    /**
+     * Critique courte laissée par l'utilisateur (max 500 caractères).
+     */
+    @Column(length = 500)
+    private String critique;
+
     @Builder.Default
     @OneToMany(mappedBy = "serie", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Saison> saisons = new ArrayList<>();

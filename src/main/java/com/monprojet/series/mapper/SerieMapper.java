@@ -18,6 +18,8 @@ public final class SerieMapper {
                 .note(request.note())
                 .imageUrl(request.imageUrl())
                 .statutVisionnage(request.statutVisionnage())
+                .notePersonnelle(request.notePersonnelle())
+                .critique(request.critique())
                 .build();
     }
 
@@ -31,7 +33,9 @@ public final class SerieMapper {
                 serie.getNote(),
                 serie.getImageUrl(),
                 serie.getTmdbId(),
-                serie.getStatutVisionnage() == null ? null : serie.getStatutVisionnage().name()
+                serie.getStatutVisionnage() == null ? null : serie.getStatutVisionnage().name(),
+                serie.getNotePersonnelle(),
+                serie.getCritique()
         );
     }
 }
