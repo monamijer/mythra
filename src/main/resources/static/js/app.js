@@ -423,7 +423,7 @@ function ouvrirEditionSerie(serie) {
       <label for="edit-image" class="sr-only">URL de l'image</label>
       <input id="edit-image" type="url" value="${serie.imageUrl || ''}" placeholder="URL de l'affiche">
 
-      <label for="edit-statut" class="sr-only">Statut de visionnage</label>
+            <label for="edit-statut" class="sr-only">Statut de visionnage</label>
       <select id="edit-statut">
         <option value="">Auto (calculé)</option>
         <option value="A_VOIR" ${serie.statutVisionnage === "A_VOIR" ? "selected" : ""}>À voir</option>
@@ -431,6 +431,14 @@ function ouvrirEditionSerie(serie) {
         <option value="TERMINEE" ${serie.statutVisionnage === "TERMINEE" ? "selected" : ""}>Terminée</option>
         <option value="ABANDONNEE" ${serie.statutVisionnage === "ABANDONNEE" ? "selected" : ""}>Abandonnée</option>
       </select>
+
+      <label for="edit-note-perso" class="sr-only">Ma note personnelle</label>
+      <input id="edit-note-perso" type="number" min="1" max="10" step="1"
+             value="${serie.notePersonnelle ?? ''}" placeholder="Ma note (1-10)">
+
+      <label for="edit-critique" class="sr-only">Ma critique</label>
+      <textarea id="edit-critique" maxlength="500" rows="2"
+                placeholder="Ma critique (500 caractères max)">${serie.critique || ''}</textarea>
 
       <button type="submit">Enregistrer</button>
     </form>

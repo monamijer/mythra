@@ -973,3 +973,99 @@ main { padding: var(--espace); max-width: 900px; margin: 0 auto; }
   color: #333;
   font-size: 0.75rem;
 }
+
+
+.bloc-avis {
+  margin: 1rem 0 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.bloc-avis h3 {
+  font-size: 1rem;
+  color: var(--couleur-primaire);
+  margin-bottom: 0.6rem;
+}
+
+.avis-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.avis-form label {
+  font-size: 0.85rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.avis-form input,
+.avis-form textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: var(--rayon);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.avis-form input[type="number"] {
+  max-width: 90px;
+}
+
+.avis-form textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.avis-etoiles {
+  color: #f39c12;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.compteur {
+  font-size: 0.75rem;
+  color: #999;
+  align-self: flex-end;
+}
+
+.avis-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.avis-actions > button {
+  min-height: 40px;
+  padding: 0 1rem;
+  border: none;
+  border-radius: var(--rayon);
+  background: var(--couleur-primaire);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+.avis-actions > button:hover { opacity: 0.9; }
+
+.avis-actions .btn-effacer {
+  background: #e74c3c;
+}
+
+.avis-message {
+  font-size: 0.85rem;
+  min-height: 1.2rem;
+  margin-top: 0.3rem;
+}
+.avis-message.succes { color: #2ecc71; }
+.avis-message.erreur { color: #e74c3c; }
+
+#edit-critique {
+  min-height: 44px;
+  padding: 0 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: var(--rayon);
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+}
