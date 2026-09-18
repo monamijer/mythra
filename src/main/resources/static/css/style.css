@@ -960,3 +960,16 @@ main { padding: var(--espace); max-width: 900px; margin: 0 auto; }
   font-style: italic;
   margin-top: 0.2rem;
 }
+
+.note-perso {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #f39c12;
+  margin-top: 0.2rem;
+}
+.note-perso strong {
+  color: #333;
+  font-size: 0.75rem;
+}

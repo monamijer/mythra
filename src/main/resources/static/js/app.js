@@ -98,6 +98,13 @@ function messageErreur(texte) {
   return `<p class="erreur-api" role="alert">Erreur : ${texte}</p>`;
 }
 
+/** Génère un affichage d'étoiles ★★★☆☆ + note /10. */
+function afficherEtoiles(note) {
+  if (!note) return "";
+  const pleines = Math.round(note / 2); // 1-10 → 1-5 étoiles
+  return "★".repeat(pleines) + "☆".repeat(5 - pleines);
+}
+
 // --- Login / Inscription ---
 
 function afficherLogin() {
@@ -303,9 +310,14 @@ function rendreMesSeries() {
         <div class="contenu">
           <h3>${serie.titre}</h3>
           <span class="meta">${serie.genre || ''} ${serie.anneeSortie ? '· ' + serie.anneeSortie : ''}</span>
-          <span class="badge-statut statut-${statut.toLowerCase()}" title="${statutForce ? 'Statut choisi manuellement' : 'Statut calculé automatiquement'}">
+                    <span class="badge-statut statut-${statut.toLowerCase()}" title="${statutForce ? 'Statut choisi manuellement' : 'Statut calculé automatiquement'}">
             ${LIBELLES_STATUT[statut] || statut}${statutForce ? "" : " (auto)"}
           </span>
+          ${serie.notePersonnelle ? `
+            <span class="note-perso" title="Ma note">
+              ${afficherEtoiles(serie.notePersonnelle)} <strong>${serie.notePersonnelle}/10</strong>
+            </span>
+          ` : ""}
           ${progression ? `
             <div class="barre-progression">
               <div class="remplissage" style="width:${progression.pourcentage}%"></div>
@@ -679,6 +691,101 @@ async function chargerVideos(serie, tmdbId) {
   });
 }
 
+async function chargerAvis(serie) {
+  const conteneur = document.getElementById("avis-detail");
+  if (!conteneur) return;
+
+  function rendre() {
+    conteneur.innerHTML = `
+      <div class="avis-form">
+        <label for="avis-note">Ma note (1 à 10) :</label>
+        <input type="number" id="avis-note" min="1" max="10" step="1"
+               value="${serie.notePersonnelle ?? ""}" placeholder="—">
+        <span class="avis-etoiles">${afficherEtoiles(serie.notePersonnelle)}</span>
+
+        <label for="avis-critique">Ma critique :</label>
+        <textarea id="avis-critique" maxlength="500" rows="3"
+                  placeholder="Qu'as-tu pensé de cette série ? (500 caractères max)">${serie.critique || ""}</textarea>
+        <small class="compteur" id="avis-compteur">${(serie.critique || "").length}/500</small>
+
+        <div class="avis-actions">
+          <button type="button" id="btn-avis-save">Enregistrer mon avis</button>
+          ${serie.notePersonnelle || serie.critique ? `
+            <button type="button" id="btn-avis-clear" class="btn-effacer">Effacer</button>
+          ` : ""}
+        </div>
+        <p id="avis-message" class="avis-message"></p>
+      </div>
+    `;
+
+    const noteInput = document.getElementById("avis-note");
+    const critiqueInput = document.getElementById("avis-critique");
+    const compteur = document.getElementById("avis-compteur");
+    const message = document.getElementById("avis-message");
+
+    noteInput?.addEventListener("input", () => {
+      const v = parseInt(noteInput.value, 10);
+      conteneur.querySelector(".avis-etoiles").textContent =
+        (v >= 1 && v <= 10) ? afficherEtoiles(v) : "";
+    });
+
+    critiqueInput?.addEventListener("input", () => {
+      compteur.textContent = `${critiqueInput.value.length}/500`;
+    });
+
+    document.getElementById("btn-avis-save").addEventListener("click", async () => {
+      const note = noteInput.value ? parseInt(noteInput.value, 10) : null;
+      const critique = critiqueInput.value.trim() || null;
+
+      if (note !== null && (note < 1 || note > 10)) {
+        message.textContent = "La note doit être entre 1 et 10.";
+        message.className = "avis-message erreur";
+        return;
+      }
+
+      try {
+        const updated = await appelApi(
+          `${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}/avis`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ notePersonnelle: note, critique }),
+          }
+        );
+        serie.notePersonnelle = updated.notePersonnelle;
+        serie.critique = updated.critique;
+        message.textContent = "Avis enregistré ✓";
+        message.className = "avis-message succes";
+        setTimeout(() => rendre(), 800);
+        chargerMesSeries();
+      } catch (err) {
+        message.textContent = err.message;
+        message.className = "avis-message erreur";
+      }
+    });
+
+    document.getElementById("btn-avis-clear")?.addEventListener("click", async () => {
+      if (!confirm("Effacer ta note et ta critique ?")) return;
+      try {
+        await appelApi(
+          `${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}/avis`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ notePersonnelle: null, critique: null }),
+          }
+        );
+        serie.notePersonnelle = null;
+        serie.critique = null;
+        rendre();
+        chargerMesSeries();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  rendre();
+}
+
 async function ouvrirDetailSerie(serie) {
   const contenu = document.getElementById("detail-contenu");
   contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageChargement();
@@ -696,8 +803,11 @@ async function ouvrirDetailSerie(serie) {
     contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageVide("Aucune saison enregistrée pour cette série.");
     return;
   }
-
-  let html = `<h2 id="titre-detail">${serie.titre}</h2>
+    let html = `<h2 id="titre-detail">${serie.titre}</h2>
+    <section class="bloc-avis">
+      <h3>Mon avis</h3>
+      <div id="avis-detail" aria-live="polite"></div>
+    </section>
     <section class="bloc-video">
       <h3>Bande-annonce</h3>
       <div id="videos-detail" aria-live="polite"></div>
@@ -729,6 +839,7 @@ async function ouvrirDetailSerie(serie) {
   }
   contenu.innerHTML = html;
 
+   chargerAvis(serie);
   chargerFournisseurs(serie, serie.tmdbId);
   chargerVideos(serie, serie.tmdbId);
 
