@@ -1,12 +1,25 @@
-/* css/style.css */
 :root {
   --couleur-primaire: #2f5496;
   --couleur-fond: #f4f6fa;
   --couleur-carte: #ffffff;
   --couleur-texte: #1a1a1a;
   --couleur-accent: #2ecc71;
+  --couleur-bordure: #dddddd;
+  --couleur-meta: #666666;
   --rayon: 10px;
   --espace: 1rem;
+}
+
+/* dark mode */
+
+html[data-theme="dark"] {
+  --couleur-primaire: #4a7bc8;
+  --couleur-fond: #121418;
+  --couleur-carte: #1c1f24;
+  --couleur-texte: #e8eaed;
+  --couleur-accent: #2ecc71;
+  --couleur-bordure: #33373d;
+  --couleur-meta: #9aa0a6;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
