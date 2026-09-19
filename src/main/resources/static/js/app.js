@@ -3,6 +3,33 @@
 
 const API = "/api";
 
+// --- Thème clair / sombre (appliqué le plus tôt possible) ---
+
+const CLE_THEME = "theme";
+
+function appliquerTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("btn-theme");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function themeInitial() {
+  const sauvegarde = localStorage.getItem(CLE_THEME);
+  if (sauvegarde === "dark" || sauvegarde === "light") return sauvegarde;
+  // Pas de préférence enregistrée → on suit le système
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function basculerTheme() {
+  const actuel = document.documentElement.getAttribute("data-theme") || "light";
+  const nouveau = actuel === "dark" ? "light" : "dark";
+  localStorage.setItem(CLE_THEME, nouveau);
+  appliquerTheme(nouveau);
+}
+
+// Applique le thème immédiatement (avant le rendu du body si possible)
+appliquerTheme(themeInitial());
+
 const IMAGE_PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='300'%3E" +
   "%3Crect width='200' height='300' fill='%23ddd'/%3E" +
@@ -116,6 +143,7 @@ function afficherApp(pseudo) {
   document.getElementById("login").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   if (pseudo) document.getElementById("nom-utilisateur").textContent = `👤 ${pseudo}`;
+  appliquerTheme(themeInitial()); // rafraîchit l'icône une fois le bouton visible
   afficherOngletAdminSiBesoin();
   chargerMesSeries();
   chargerGenres();
@@ -1362,6 +1390,10 @@ document.getElementById("btn-rafraichir-admin").addEventListener("click", () => 
   chargerStatsAdmin();
   chargerListeAdmin();
 });
+
+// --- Écoute du bouton thème ---
+
+document.getElementById("btn-theme")?.addEventListener("click", basculerTheme);
 
 // --- Startup ---
 
