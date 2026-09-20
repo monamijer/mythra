@@ -1190,3 +1190,120 @@ html[data-theme="dark"] .statut-a_voir {
   background: #2a2f36;
   color: var(--couleur-texte);
 }
+
+/* ===== Statistiques utilisateur ===== */
+
+.stats-section {
+  margin-bottom: 2rem;
+}
+
+.stats-section .titre-section {
+  margin-bottom: 0.75rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--espace);
+}
+
+.stat-card.stat-total     .stat-valeur { color: var(--couleur-primaire); }
+.stat-card.stat-en-cours  .stat-valeur { color: #3498db; }
+.stat-card.stat-big .stat-valeur {
+  font-size: 1.6rem;
+  word-break: break-word;
+}
+
+.stats-note {
+  font-size: 0.85rem;
+  color: var(--couleur-meta);
+  margin-top: 0.6rem;
+  text-align: center;
+}
+
+/* Barres de genres */
+
+.stats-genres {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.genre-barre {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.genre-nom {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.genre-barre-fond {
+  height: 10px;
+  background: #e0e0e0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.genre-barre-remplissage {
+  height: 100%;
+  background: var(--couleur-accent);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.genre-valeur {
+  font-size: 0.8rem;
+  color: var(--couleur-meta);
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .genre-barre-fond { background: #2a2f36; }
+
+/* Activité récente */
+
+.stats-activite {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.stats-activite li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--couleur-carte);
+  border-radius: var(--rayon);
+  border: 1px solid var(--couleur-bordure);
+  font-size: 0.9rem;
+}
+
+.stats-activite li strong {
+  display: block;
+  color: var(--couleur-primaire);
+}
+
+.stats-activite li .meta {
+  font-size: 0.8rem;
+  color: var(--couleur-meta);
+}
+
+@media (max-width: 500px) {
+  .genre-barre {
+    grid-template-columns: 90px 1fr;
+  }
+  .genre-valeur {
+    grid-column: 1 / -1;
+    text-align: right;
+    font-size: 0.75rem;
+  }
+}

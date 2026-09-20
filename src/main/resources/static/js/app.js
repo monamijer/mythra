@@ -232,9 +232,12 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
       ongletDecouvrirCharge = true;
       chargerCategorieTmdb("populaires", document.querySelector(".souscat-btn[data-cat='populaires']"));
     }
-    if (btn.dataset.tab === "admin") {
+     if (btn.dataset.tab === "admin") {
       chargerStatsAdmin();
       chargerListeAdmin();
+    }
+    if (btn.dataset.tab === "stats") {
+      chargerMesStats();
     }
   });
 });
@@ -1394,6 +1397,148 @@ document.getElementById("btn-rafraichir-admin").addEventListener("click", () => 
 // --- Écoute du bouton thème ---
 
 document.getElementById("btn-theme")?.addEventListener("click", basculerTheme);
+
+// --- Statistiques utilisateur ---
+
+function formatDuree(minutes) {
+  if (!minutes || minutes <= 0) return "0 h";
+  const heures = Math.floor(minutes / 60);
+  const jours = Math.floor(heures / 24);
+  const resteH = heures % 24;
+  if (jours > 0) return `${jours} j ${resteH} h`;
+  return `${heures} h`;
+}
+
+function formatDateRelative(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const j = Math.floor(h / 24);
+  if (j < 30) return `il y a ${j} j`;
+  return d.toLocaleDateString("fr-FR");
+}
+
+async function chargerMesStats() {
+  const conteneur = document.getElementById("stats-contenu");
+  conteneur.innerHTML = messageChargement();
+
+  let s;
+  try {
+    s = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/stats`);
+  } catch (err) {
+    conteneur.innerHTML = messageErreur(err.message);
+    return;
+  }
+
+  const maxEpisodes = s.topGenres && s.topGenres.length > 0
+    ? Math.max(...s.topGenres.map(g => g.episodesVus))
+    : 1;
+
+  conteneur.innerHTML = `
+    <div class="stats-section">
+      <h3 class="titre-section">📚 Ma collection</h3>
+      <div class="stats-grid">
+        <div class="stat-card stat-total">
+          <span class="stat-valeur">${s.seriesTotal}</span>
+          <span class="stat-label">Séries</span>
+        </div>
+        <div class="stat-card stat-approuve">
+          <span class="stat-valeur">${s.seriesTerminees}</span>
+          <span class="stat-label">Terminées</span>
+        </div>
+        <div class="stat-card stat-en-cours">
+          <span class="stat-valeur">${s.seriesEnCours}</span>
+          <span class="stat-label">En cours</span>
+        </div>
+        <div class="stat-card stat-attente">
+          <span class="stat-valeur">${s.seriesAVoir}</span>
+          <span class="stat-label">À voir</span>
+        </div>
+        <div class="stat-card stat-refuse">
+          <span class="stat-valeur">${s.seriesAbandonnees}</span>
+          <span class="stat-label">Abandonnées</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-section">
+      <h3 class="titre-section">⏱️ Temps de visionnage</h3>
+      <div class="stats-grid">
+        <div class="stat-card stat-big">
+          <span class="stat-valeur">${formatDuree(s.tempsTotalVisionneMinutes)}</span>
+          <span class="stat-label">Temps visionné</span>
+        </div>
+        <div class="stat-card stat-big">
+          <span class="stat-valeur">${formatDuree(s.tempsRestantMinutes)}</span>
+          <span class="stat-label">Temps restant</span>
+        </div>
+      </div>
+      <p class="stats-note">${s.episodesVus} épisodes vus sur ${s.episodesTotal} disponibles</p>
+    </div>
+
+    <div class="stats-section">
+      <h3 class="titre-section">⭐ Mes notes</h3>
+      ${s.seriesNotees === 0 ? messageVide("Aucune série notée pour l'instant.") : `
+        <div class="stats-grid">
+          <div class="stat-card stat-big">
+            <span class="stat-valeur">${s.notePersonnelleMoyenne ?? "—"} / 10</span>
+            <span class="stat-label">Note moyenne</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-valeur">${s.seriesNotees}</span>
+            <span class="stat-label">Séries notées</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-valeur">${s.seriesNonNotees}</span>
+            <span class="stat-label">Non notées</span>
+          </div>
+        </div>
+      `}
+    </div>
+
+    <div class="stats-section">
+      <h3 class="titre-section">🎭 Top genres</h3>
+      ${(!s.topGenres || s.topGenres.length === 0)
+        ? messageVide("Aucun épisode visionné pour l'instant.")
+        : `
+          <div class="stats-genres">
+            ${s.topGenres.map(g => `
+              <div class="genre-barre">
+                <span class="genre-nom">${g.genre}</span>
+                <div class="genre-barre-fond">
+                  <div class="genre-barre-remplissage" style="width:${(g.episodesVus / maxEpisodes) * 100}%"></div>
+                </div>
+                <span class="genre-valeur">${g.episodesVus} ép. · ${formatDuree(g.minutesVisionnees)}</span>
+              </div>
+            `).join("")}
+          </div>
+        `}
+    </div>
+
+    <div class="stats-section">
+      <h3 class="titre-section">📅 Activité récente</h3>
+      ${(!s.activiteRecente || s.activiteRecente.length === 0)
+        ? messageVide("Aucune activité pour l'instant.")
+        : `
+          <ul class="stats-activite">
+            ${s.activiteRecente.map(a => `
+              <li>
+                <div>
+                  <strong>${a.serieTitre}</strong>
+                  <span class="meta">S${a.saisonNumero}E${a.episodeNumero} — ${a.episodeTitre || "Sans titre"}</span>
+                </div>
+                <span class="meta">${formatDateRelative(a.dateVisionnage)}</span>
+              </li>
+            `).join("")}
+          </ul>
+        `}
+    </div>
+  `;
+}
 
 // --- Startup ---
 
