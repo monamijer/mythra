@@ -10,16 +10,21 @@ import java.util.Optional;
 
 public interface SerieRepository extends JpaRepository<Serie, Long> {
 
-    // Used by the TMDB import flow to avoid creating duplicates (RG7)
     Optional<Serie> findByTmdbId(Long tmdbId);
 
     List<Serie> findByUtilisateurId(Long utilisateurId);
 
     List<Serie> findByUtilisateurIdAndStatutVisionnage(Long utilisateurId, StatutVisionnage statut);
 
-    // Ownership-checked lookup: returns empty if the series exists but belongs to
-    // someone else
     Optional<Serie> findByIdAndUtilisateurId(Long id, Long utilisateurId);
 
     Optional<Serie> findByTmdbIdAndUtilisateurId(Long tmdbId, Long utilisateurId);
+
+    // ---------- Stats utilisateur ----------
+
+    long countByUtilisateur_Id(Long utilisateurId);
+
+    long countByUtilisateur_IdAndStatutVisionnage(Long utilisateurId, StatutVisionnage statut);
+
+    long countByUtilisateur_IdAndNotePersonnelleIsNotNull(Long utilisateurId);
 }
