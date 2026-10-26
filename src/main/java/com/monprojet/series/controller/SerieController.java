@@ -108,5 +108,5 @@ public class SerieController {
         if (!utilisateurConnecte.getId().equals(userId)) {
             throw new AccessDeniedException("Accès refusé à cette ressource.");
         }
-    }
+    }   
 }
