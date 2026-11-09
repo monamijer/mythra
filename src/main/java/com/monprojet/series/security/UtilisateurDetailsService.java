@@ -23,7 +23,11 @@ public class UtilisateurDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         Utilisateur u = utilisateurRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + email));
+        return construire(u);
+    }
 
+    // Shared with JwtAuthenticationFilter, which has already loaded the user
+    public UserDetails construire(Utilisateur u) {
         return new User(
                 u.getEmail(),
                 u.getMotDePasse(),
