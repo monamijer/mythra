@@ -3,11 +3,14 @@ package com.monprojet.series.service;
 
 import com.monprojet.series.dto.response.StatistiquesAdminResponse;
 import com.monprojet.series.entity.RoleUtilisateur;
+import com.monprojet.series.entity.Serie;
 import com.monprojet.series.entity.StatutUtilisateur;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.exception.BusinessException;
 import com.monprojet.series.exception.ResourceNotFoundException;
+import com.monprojet.series.repository.SerieRepository;
 import com.monprojet.series.repository.UtilisateurRepository;
+import com.monprojet.series.repository.VisionnageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,8 @@ public class UtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SerieRepository serieRepository;
+    private final VisionnageRepository visionnageRepository;
 
     @Transactional(readOnly = true)
     public List<Utilisateur> listerTous() {
@@ -90,13 +95,24 @@ public class UtilisateurService {
     }
 
     /**
-     * Suppression en cascade : JPA supprime les Visionnage et Serie associés
-     * grâce à cascade = CascadeType.ALL sur les relations.
+     * Deletes a user together with everything they own, in an order that
+     * respects the foreign keys: watch records, then series (their seasons and
+     * episodes follow through the cascade on Serie), then the account itself.
      */
     public void supprimer(Long id) {
         Utilisateur u = obtenirParId(id);
         verifierPasDernierAdmin(u, "supprimer");
-        utilisateurRepository.delete(u);
+
+        List<Long> serieIds = serieRepository.findByUtilisateurId(id).stream().map(Serie::getId).toList();
+
+        visionnageRepository.supprimerParUtilisateur(id);
+        serieIds.forEach(visionnageRepository::supprimerParSerie);
+
+        // Reloaded after the bulk deletes, which clear the persistence context
+        serieRepository.findByUtilisateurId(id).forEach(serieRepository::delete);
+        serieRepository.flush();
+
+        utilisateurRepository.findById(id).ifPresent(utilisateurRepository::delete);
     }
 
     @Transactional(readOnly = true)

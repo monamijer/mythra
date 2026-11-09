@@ -3,6 +3,7 @@ package com.monprojet.series.repository;
 
 import com.monprojet.series.entity.Visionnage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -50,4 +51,17 @@ public interface VisionnageRepository extends JpaRepository<Visionnage, Long> {
 
     /** 10 derniers visionnages d'un utilisateur, du plus récent au plus ancien. */
     List<Visionnage> findTop10ByUtilisateur_IdOrderByDateVisionnageDesc(Long utilisateurId);
+
+    // ---------- Cleanup before deleting a series or a user ----------
+    // Visionnage rows reference episodes and users through foreign keys, so they
+    // have to be removed first or the delete would fail with an integrity error.
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM Visionnage v WHERE v.episode.id IN "
+            + "(SELECT e.id FROM Episode e WHERE e.saison.serie.id = :serieId)")
+    void supprimerParSerie(@Param("serieId") Long serieId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM Visionnage v WHERE v.utilisateur.id = :utilisateurId")
+    void supprimerParUtilisateur(@Param("utilisateurId") Long utilisateurId);
 }

@@ -6,6 +6,7 @@ import com.monprojet.series.entity.StatutVisionnage;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.exception.ResourceNotFoundException;
 import com.monprojet.series.repository.SerieRepository;
+import com.monprojet.series.repository.VisionnageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class SerieService {
 
     private final SerieRepository serieRepository;
     private final UtilisateurService utilisateurService;
+    private final VisionnageRepository visionnageRepository;
 
     @Transactional(readOnly = true)
     public List<Serie> listerToutes(Long utilisateurId) {
@@ -77,8 +79,13 @@ public class SerieService {
     }
 
     public void supprimer(Long id, Long utilisateurId) {
-        Serie serie = obtenirParId(id, utilisateurId);
-        serieRepository.delete(serie);
+        obtenirParId(id, utilisateurId); // 404 if missing or owned by someone else
+
+        // Watch records point at the episodes, so they go first; seasons and
+        // episodes are then removed by the cascade on Serie. The series is
+        // reloaded because the bulk delete clears the persistence context.
+        visionnageRepository.supprimerParSerie(id);
+        serieRepository.findByIdAndUtilisateurId(id, utilisateurId).ifPresent(serieRepository::delete);
     }
 
     @Transactional(readOnly = true)
