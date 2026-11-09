@@ -6,12 +6,14 @@ import com.monprojet.series.dto.response.ProgressionResponse;
 import com.monprojet.series.dto.response.ProgressionResponse.StatutProgression;
 import com.monprojet.series.entity.Episode;
 import com.monprojet.series.entity.Saison;
+import com.monprojet.series.entity.Serie;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.entity.Visionnage;
 import com.monprojet.series.exception.BusinessException;
 import com.monprojet.series.exception.ResourceNotFoundException;
 import com.monprojet.series.repository.EpisodeRepository;
 import com.monprojet.series.repository.SaisonRepository;
+import com.monprojet.series.repository.SerieRepository;
 import com.monprojet.series.repository.VisionnageRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,7 @@ public class VisionnageService {
     private final VisionnageRepository visionnageRepository;
     private final EpisodeRepository episodeRepository;
     private final SaisonRepository saisonRepository;
+    private final SerieRepository serieRepository;
     private final UtilisateurService utilisateurService;
     private final EpisodeService episodeService;
 
@@ -38,6 +41,12 @@ public class VisionnageService {
     public MarquerVisionnageResponse marquerCommeVu(Long utilisateurId, Long episodeId) {
         Utilisateur utilisateur = utilisateurService.obtenirParId(utilisateurId);
         Episode episode = episodeService.obtenirParId(episodeId);
+
+        // An episode can only be marked as watched by the owner of its series
+        Long proprietaireId = episode.getSaison().getSerie().getUtilisateur().getId();
+        if (!proprietaireId.equals(utilisateurId)) {
+            throw new ResourceNotFoundException("Épisode introuvable : id=" + episodeId);
+        }
 
         if (visionnageRepository.existsByUtilisateur_IdAndEpisode_Id(utilisateurId, episodeId)) {
             throw new BusinessException("Cet épisode a déjà été marqué comme vu par cet utilisateur.");
@@ -80,6 +89,9 @@ public class VisionnageService {
     @Transactional(readOnly = true)
     public ProgressionResponse calculerProgression(Long utilisateurId, Long serieId) {
         utilisateurService.obtenirParId(utilisateurId);
+        // 404 when the series does not exist or belongs to someone else
+        serieRepository.findByIdAndUtilisateurId(serieId, utilisateurId)
+                .orElseThrow(() -> new ResourceNotFoundException("Série introuvable : id=" + serieId));
 
         long episodesVus = visionnageRepository
                 .countByUtilisateur_IdAndEpisode_Saison_Serie_Id(utilisateurId, serieId);
@@ -111,12 +123,11 @@ public class VisionnageService {
         );
     }
 
-    /** RG6: classifies every series the catalog holds by watch status for this user. */
+    /** RG6: classifies the user's own series by watch status. */
     @Transactional(readOnly = true)
     public List<ProgressionResponse> listerParStatut(Long utilisateurId, StatutProgression statut) {
-        return episodeRepository.findAll().stream()
-                .map(e -> e.getSaison().getSerie().getId())
-                .distinct()
+        return serieRepository.findByUtilisateurId(utilisateurId).stream()
+                .map(Serie::getId)
                 .map(serieId -> calculerProgression(utilisateurId, serieId))
                 .filter(p -> p.statut() == statut)
                 .toList();

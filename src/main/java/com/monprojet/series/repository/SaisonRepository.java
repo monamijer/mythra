@@ -13,4 +13,7 @@ public interface SaisonRepository extends JpaRepository<Saison, Long> {
 
     // Used to resolve "next season" when a season is completed (RG2)
     Optional<Saison> findBySerieIdAndNumero(Long serieId, Integer numero);
+
+    // Ownership check used by SecuriteService (a season belongs to its series' owner)
+    boolean existsByIdAndSerie_Utilisateur_Id(Long saisonId, Long utilisateurId);
 }

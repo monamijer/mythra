@@ -3,6 +3,7 @@ package com.monprojet.series.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -47,6 +48,15 @@ public class GlobalExceptionHandler {
         var body = new ApiErrorResponse(
                 HttpStatus.NOT_FOUND.value(), "Route introuvable", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    // Thrown by @PreAuthorize checks: must be 403, not swallowed by the catch-all below
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> gererAccesRefuse(AccessDeniedException ex) {
+        var body = new ApiErrorResponse(
+                HttpStatus.FORBIDDEN.value(), "Accès refusé",
+                "Vous n'avez pas le droit d'accéder à cette ressource.");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     // Safety net — never leaks a raw stack trace to the client

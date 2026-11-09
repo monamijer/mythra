@@ -1,0 +1,480 @@
+diff --git a/src/main/java/com/monprojet/series/config/SecurityConfig.java b/src/main/java/com/monprojet/series/config/SecurityConfig.java
+index c257986..0a980e4 100644
+--- a/src/main/java/com/monprojet/series/config/SecurityConfig.java
++++ b/src/main/java/com/monprojet/series/config/SecurityConfig.java
+@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
+ import org.springframework.security.authentication.AuthenticationManager;
+ import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+ import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
++import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+ import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+ import org.springframework.security.config.http.SessionCreationPolicy;
+@@ -23,6 +24,7 @@ import java.util.List;
+ 
+ @Configuration
+ @EnableWebSecurity
++@EnableMethodSecurity
+ @RequiredArgsConstructor
+ public class SecurityConfig {
+ 
+diff --git a/src/main/java/com/monprojet/series/controller/EpisodeController.java b/src/main/java/com/monprojet/series/controller/EpisodeController.java
+index 7d51528..d0f066e 100644
+--- a/src/main/java/com/monprojet/series/controller/EpisodeController.java
++++ b/src/main/java/com/monprojet/series/controller/EpisodeController.java
+@@ -9,11 +9,13 @@ import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.List;
+ 
+ @RestController
++@PreAuthorize("@securite.possedeSaison(#saisonId)")
+ @RequiredArgsConstructor
+ public class EpisodeController {
+ 
+diff --git a/src/main/java/com/monprojet/series/controller/SaisonController.java b/src/main/java/com/monprojet/series/controller/SaisonController.java
+index 91419d4..0ad8d83 100644
+--- a/src/main/java/com/monprojet/series/controller/SaisonController.java
++++ b/src/main/java/com/monprojet/series/controller/SaisonController.java
+@@ -9,11 +9,13 @@ import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.List;
+ 
+ @RestController
++@PreAuthorize("@securite.peutAcceder(#userId)")
+ @RequiredArgsConstructor
+ public class SaisonController {
+ 
+diff --git a/src/main/java/com/monprojet/series/controller/SerieController.java b/src/main/java/com/monprojet/series/controller/SerieController.java
+index 3af509e..75c58f7 100644
+--- a/src/main/java/com/monprojet/series/controller/SerieController.java
++++ b/src/main/java/com/monprojet/series/controller/SerieController.java
+@@ -6,34 +6,29 @@ import com.monprojet.series.dto.request.SerieRequest;
+ import com.monprojet.series.dto.response.SerieResponse;
+ import com.monprojet.series.entity.Serie;
+ import com.monprojet.series.entity.StatutVisionnage;
+-import com.monprojet.series.entity.Utilisateur;
+ import com.monprojet.series.mapper.SerieMapper;
+ import com.monprojet.series.service.SerieService;
+-import com.monprojet.series.service.UtilisateurService;
+ import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+-import org.springframework.security.access.AccessDeniedException;
+-import org.springframework.security.core.Authentication;
+-import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.List;
+ 
+ @RestController
+ @RequestMapping("/api/utilisateurs/{userId}/series")
++@PreAuthorize("@securite.peutAcceder(#userId)")
+ @RequiredArgsConstructor
+ public class SerieController {
+ 
+     private final SerieService serieService;
+-    private final UtilisateurService utilisateurService;
+ 
+     @GetMapping
+     public List<SerieResponse> lister(
+             @PathVariable Long userId,
+             @RequestParam(required = false) StatutVisionnage statut) {
+-        verifierAcces(userId);
+         var series = (statut == null)
+                 ? serieService.listerToutes(userId)
+                 : serieService.listerParStatut(userId, statut);
+@@ -42,14 +37,12 @@ public class SerieController {
+ 
+     @GetMapping("/{id}")
+     public SerieResponse obtenir(@PathVariable Long userId, @PathVariable Long id) {
+-        verifierAcces(userId);
+         return SerieMapper.toResponse(serieService.obtenirParId(id, userId));
+     }
+ 
+     @PostMapping
+     public ResponseEntity<SerieResponse> creer(
+             @PathVariable Long userId, @Valid @RequestBody SerieRequest request) {
+-        verifierAcces(userId);
+         Serie creee = serieService.creer(userId, SerieMapper.toEntity(request));
+         return ResponseEntity.status(HttpStatus.CREATED).body(SerieMapper.toResponse(creee));
+     }
+@@ -57,7 +50,6 @@ public class SerieController {
+     @PutMapping("/{id}")
+     public SerieResponse modifier(
+             @PathVariable Long userId, @PathVariable Long id, @Valid @RequestBody SerieRequest request) {
+-        verifierAcces(userId);
+         return SerieMapper.toResponse(serieService.modifier(id, userId, SerieMapper.toEntity(request)));
+     }
+ 
+@@ -66,7 +58,6 @@ public class SerieController {
+             @PathVariable Long userId,
+             @PathVariable Long id,
+             @RequestParam(required = false) StatutVisionnage statut) {
+-        verifierAcces(userId);
+         return SerieMapper.toResponse(serieService.changerStatut(id, userId, statut));
+     }
+ 
+@@ -80,7 +71,6 @@ public class SerieController {
+             @PathVariable Long userId,
+             @PathVariable Long id,
+             @Valid @RequestBody AvisRequest request) {
+-        verifierAcces(userId);
+         return SerieMapper.toResponse(
+                 serieService.changerAvis(id, userId, request.notePersonnelle(), request.critique())
+         );
+@@ -88,25 +78,7 @@ public class SerieController {
+ 
+     @DeleteMapping("/{id}")
+     public ResponseEntity<Void> supprimer(@PathVariable Long userId, @PathVariable Long id) {
+-        verifierAcces(userId);
+         serieService.supprimer(id, userId);
+         return ResponseEntity.noContent().build();
+     }
+-
+-    private void verifierAcces(Long userId) {
+-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+-
+-        boolean estAdmin = authentication.getAuthorities().stream()
+-                .anyMatch(autorite -> autorite.getAuthority().equals("ROLE_ADMIN"));
+-        if (estAdmin) {
+-            return;
+-        }
+-
+-        String emailConnecte = authentication.getName();
+-        Utilisateur utilisateurConnecte = utilisateurService.obtenirParEmail(emailConnecte);
+-
+-        if (!utilisateurConnecte.getId().equals(userId)) {
+-            throw new AccessDeniedException("Accès refusé à cette ressource.");
+-        }
+-    }   
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/java/com/monprojet/series/controller/StatsController.java b/src/main/java/com/monprojet/series/controller/StatsController.java
+index 68f6c6d..bb35e7c 100644
+--- a/src/main/java/com/monprojet/series/controller/StatsController.java
++++ b/src/main/java/com/monprojet/series/controller/StatsController.java
+@@ -1,41 +1,21 @@
+ package com.monprojet.series.controller;
+ 
+ import com.monprojet.series.dto.response.StatsUtilisateurResponse;
+-import com.monprojet.series.entity.Utilisateur;
+ import com.monprojet.series.service.StatsService;
+-import com.monprojet.series.service.UtilisateurService;
+ import lombok.RequiredArgsConstructor;
+-import org.springframework.security.access.AccessDeniedException;
+-import org.springframework.security.core.Authentication;
+-import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ @RestController
+ @RequestMapping("/api/utilisateurs/{userId}/stats")
++@PreAuthorize("@securite.peutAcceder(#userId)")
+ @RequiredArgsConstructor
+ public class StatsController {
+ 
+     private final StatsService statsService;
+-    private final UtilisateurService utilisateurService;
+ 
+     @GetMapping
+     public StatsUtilisateurResponse stats(@PathVariable Long userId) {
+-        verifierAcces(userId);
+         return statsService.calculer(userId);
+     }
+-
+-    private void verifierAcces(Long userId) {
+-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+-
+-        boolean estAdmin = authentication.getAuthorities().stream()
+-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+-        if (estAdmin) return;
+-
+-        String emailConnecte = authentication.getName();
+-        Utilisateur utilisateurConnecte = utilisateurService.obtenirParEmail(emailConnecte);
+-
+-        if (!utilisateurConnecte.getId().equals(userId)) {
+-            throw new AccessDeniedException("Accès refusé à cette ressource.");
+-        }
+-    }
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/java/com/monprojet/series/controller/TmdbImportController.java b/src/main/java/com/monprojet/series/controller/TmdbImportController.java
+index f6776a4..d08f22f 100644
+--- a/src/main/java/com/monprojet/series/controller/TmdbImportController.java
++++ b/src/main/java/com/monprojet/series/controller/TmdbImportController.java
+@@ -1,4 +1,4 @@
+-// TmdbImportController.java — new file
++// TmdbImportController.java
+ package com.monprojet.series.controller;
+ 
+ import com.monprojet.series.dto.response.SerieResponse;
+@@ -7,6 +7,7 @@ import com.monprojet.series.service.TmdbService;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.PathVariable;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestMapping;
+@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
+ 
+ @RestController
+ @RequestMapping("/api/utilisateurs/{userId}/tmdb")
++@PreAuthorize("@securite.peutAcceder(#userId)")
+ @RequiredArgsConstructor
+ public class TmdbImportController {
+ 
+diff --git a/src/main/java/com/monprojet/series/controller/UtilisateurController.java b/src/main/java/com/monprojet/series/controller/UtilisateurController.java
+index f5e9924..325b687 100644
+--- a/src/main/java/com/monprojet/series/controller/UtilisateurController.java
++++ b/src/main/java/com/monprojet/series/controller/UtilisateurController.java
+@@ -1,13 +1,10 @@
+ package com.monprojet.series.controller;
+ 
+-import com.monprojet.series.dto.request.UtilisateurRequest;
+ import com.monprojet.series.dto.response.UtilisateurResponse;
+ import com.monprojet.series.mapper.UtilisateurMapper;
+ import com.monprojet.series.service.UtilisateurService;
+-import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+-import org.springframework.http.HttpStatus;
+-import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.List;
+@@ -19,19 +16,16 @@ public class UtilisateurController {
+ 
+     private final UtilisateurService utilisateurService;
+ 
++    // Listing every account is an administration task
+     @GetMapping
++    @PreAuthorize("hasRole('ADMIN')")
+     public List<UtilisateurResponse> lister() {
+         return utilisateurService.listerTous().stream().map(UtilisateurMapper::toResponse).toList();
+     }
+ 
+     @GetMapping("/{id}")
++    @PreAuthorize("@securite.peutAcceder(#id)")
+     public UtilisateurResponse obtenir(@PathVariable Long id) {
+         return UtilisateurMapper.toResponse(utilisateurService.obtenirParId(id));
+     }
+-
+-    // @PostMapping
+-    // public ResponseEntity<UtilisateurResponse> creer(@Valid @RequestBody UtilisateurRequest request) {
+-    //     var cree = utilisateurService.creer(UtilisateurMapper.toEntity(request));
+-    //     return ResponseEntity.status(HttpStatus.CREATED).body(UtilisateurMapper.toResponse(cree));
+-    // }
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/java/com/monprojet/series/controller/VisionnageController.java b/src/main/java/com/monprojet/series/controller/VisionnageController.java
+index b6c245f..8027fee 100644
+--- a/src/main/java/com/monprojet/series/controller/VisionnageController.java
++++ b/src/main/java/com/monprojet/series/controller/VisionnageController.java
+@@ -8,12 +8,14 @@ import com.monprojet.series.service.VisionnageService;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.prepost.PreAuthorize;
+ import org.springframework.web.bind.annotation.*;
+ 
+ import java.util.List;
+ 
+ @RestController
+ @RequestMapping("/api/utilisateurs/{userId}")
++@PreAuthorize("@securite.peutAcceder(#userId)")
+ @RequiredArgsConstructor
+ public class VisionnageController {
+ 
+diff --git a/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java b/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
+index 0525b32..f5b41b4 100644
+--- a/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
++++ b/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
+@@ -3,6 +3,7 @@ package com.monprojet.series.exception;
+ 
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.security.access.AccessDeniedException;
+ import org.springframework.web.bind.MethodArgumentNotValidException;
+ import org.springframework.web.bind.annotation.ExceptionHandler;
+ import org.springframework.web.bind.annotation.RestControllerAdvice;
+@@ -49,6 +50,15 @@ public class GlobalExceptionHandler {
+         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+     }
+ 
++    // Thrown by @PreAuthorize checks: must be 403, not swallowed by the catch-all below
++    @ExceptionHandler(AccessDeniedException.class)
++    public ResponseEntity<ApiErrorResponse> gererAccesRefuse(AccessDeniedException ex) {
++        var body = new ApiErrorResponse(
++                HttpStatus.FORBIDDEN.value(), "Accès refusé",
++                "Vous n'avez pas le droit d'accéder à cette ressource.");
++        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
++    }
++
+     // Safety net — never leaks a raw stack trace to the client
+     @ExceptionHandler(Exception.class)
+     public ResponseEntity<ApiErrorResponse> gererErreurInattendue(Exception ex) {
+diff --git a/src/main/java/com/monprojet/series/repository/SaisonRepository.java b/src/main/java/com/monprojet/series/repository/SaisonRepository.java
+index ef03f1a..3944525 100644
+--- a/src/main/java/com/monprojet/series/repository/SaisonRepository.java
++++ b/src/main/java/com/monprojet/series/repository/SaisonRepository.java
+@@ -13,4 +13,7 @@ public interface SaisonRepository extends JpaRepository<Saison, Long> {
+ 
+     // Used to resolve "next season" when a season is completed (RG2)
+     Optional<Saison> findBySerieIdAndNumero(Long serieId, Integer numero);
++
++    // Ownership check used by SecuriteService (a season belongs to its series' owner)
++    boolean existsByIdAndSerie_Utilisateur_Id(Long saisonId, Long utilisateurId);
+ }
+\ No newline at end of file
+diff --git a/src/main/java/com/monprojet/series/security/SecuriteService.java b/src/main/java/com/monprojet/series/security/SecuriteService.java
+new file mode 100644
+index 0000000..f0e5bb3
+--- /dev/null
++++ b/src/main/java/com/monprojet/series/security/SecuriteService.java
+@@ -0,0 +1,64 @@
++// SecuriteService.java
++package com.monprojet.series.security;
++
++import com.monprojet.series.entity.Utilisateur;
++import com.monprojet.series.repository.SaisonRepository;
++import com.monprojet.series.repository.UtilisateurRepository;
++import lombok.RequiredArgsConstructor;
++import org.springframework.security.core.Authentication;
++import org.springframework.security.core.context.SecurityContextHolder;
++import org.springframework.stereotype.Component;
++
++import java.util.Optional;
++
++/**
++ * Single place where "who may touch what" is decided. Controllers reference it
++ * from @PreAuthorize("@securite.peutAcceder(#userId)"), so no controller has to
++ * repeat the check by hand.
++ */
++@Component("securite")
++@RequiredArgsConstructor
++public class SecuriteService {
++
++    private final UtilisateurRepository utilisateurRepository;
++    private final SaisonRepository saisonRepository;
++
++    /** True for an admin, or when {userId} is the authenticated user's own id. */
++    public boolean peutAcceder(Long userId) {
++        Authentication authentication = authentificationCourante();
++        if (authentication == null) return false;
++        if (estAdmin(authentication)) return true;
++        return idUtilisateurCourant(authentication)
++                .map(id -> id.equals(userId))
++                .orElse(false);
++    }
++
++    /**
++     * True for an admin, or when the season belongs to a series owned by the
++     * authenticated user. An unknown season gives false as well, so a caller
++     * cannot tell "does not exist" from "belongs to someone else".
++     */
++    public boolean possedeSaison(Long saisonId) {
++        Authentication authentication = authentificationCourante();
++        if (authentication == null) return false;
++        if (estAdmin(authentication)) return true;
++        return idUtilisateurCourant(authentication)
++                .map(id -> saisonRepository.existsByIdAndSerie_Utilisateur_Id(saisonId, id))
++                .orElse(false);
++    }
++
++    private Authentication authentificationCourante() {
++        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
++        return (authentication != null && authentication.isAuthenticated()) ? authentication : null;
++    }
++
++    private boolean estAdmin(Authentication authentication) {
++        return authentication.getAuthorities().stream()
++                .anyMatch(autorite -> autorite.getAuthority().equals("ROLE_ADMIN"));
++    }
++
++    // The JWT carries the email only, so it is resolved to an id here.
++    private Optional<Long> idUtilisateurCourant(Authentication authentication) {
++        return utilisateurRepository.findByEmail(authentication.getName()).map(Utilisateur::getId);
++    }
++}
+diff --git a/src/main/java/com/monprojet/series/service/VisionnageService.java b/src/main/java/com/monprojet/series/service/VisionnageService.java
+index eac103d..5f96607 100644
+--- a/src/main/java/com/monprojet/series/service/VisionnageService.java
++++ b/src/main/java/com/monprojet/series/service/VisionnageService.java
+@@ -6,12 +6,14 @@ import com.monprojet.series.dto.response.ProgressionResponse;
+ import com.monprojet.series.dto.response.ProgressionResponse.StatutProgression;
+ import com.monprojet.series.entity.Episode;
+ import com.monprojet.series.entity.Saison;
++import com.monprojet.series.entity.Serie;
+ import com.monprojet.series.entity.Utilisateur;
+ import com.monprojet.series.entity.Visionnage;
+ import com.monprojet.series.exception.BusinessException;
+ import com.monprojet.series.exception.ResourceNotFoundException;
+ import com.monprojet.series.repository.EpisodeRepository;
+ import com.monprojet.series.repository.SaisonRepository;
++import com.monprojet.series.repository.SerieRepository;
+ import com.monprojet.series.repository.VisionnageRepository;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.stereotype.Service;
+@@ -28,6 +30,7 @@ public class VisionnageService {
+     private final VisionnageRepository visionnageRepository;
+     private final EpisodeRepository episodeRepository;
+     private final SaisonRepository saisonRepository;
++    private final SerieRepository serieRepository;
+     private final UtilisateurService utilisateurService;
+     private final EpisodeService episodeService;
+ 
+@@ -39,6 +42,12 @@ public class VisionnageService {
+         Utilisateur utilisateur = utilisateurService.obtenirParId(utilisateurId);
+         Episode episode = episodeService.obtenirParId(episodeId);
+ 
++        // An episode can only be marked as watched by the owner of its series
++        Long proprietaireId = episode.getSaison().getSerie().getUtilisateur().getId();
++        if (!proprietaireId.equals(utilisateurId)) {
++            throw new ResourceNotFoundException("Épisode introuvable : id=" + episodeId);
++        }
++
+         if (visionnageRepository.existsByUtilisateur_IdAndEpisode_Id(utilisateurId, episodeId)) {
+             throw new BusinessException("Cet épisode a déjà été marqué comme vu par cet utilisateur.");
+         }
+@@ -80,6 +89,9 @@ public class VisionnageService {
+     @Transactional(readOnly = true)
+     public ProgressionResponse calculerProgression(Long utilisateurId, Long serieId) {
+         utilisateurService.obtenirParId(utilisateurId);
++        // 404 when the series does not exist or belongs to someone else
++        serieRepository.findByIdAndUtilisateurId(serieId, utilisateurId)
++                .orElseThrow(() -> new ResourceNotFoundException("Série introuvable : id=" + serieId));
+ 
+         long episodesVus = visionnageRepository
+                 .countByUtilisateur_IdAndEpisode_Saison_Serie_Id(utilisateurId, serieId);
+@@ -111,12 +123,11 @@ public class VisionnageService {
+         );
+     }
+ 
+-    /** RG6: classifies every series the catalog holds by watch status for this user. */
++    /** RG6: classifies the user's own series by watch status. */
+     @Transactional(readOnly = true)
+     public List<ProgressionResponse> listerParStatut(Long utilisateurId, StatutProgression statut) {
+-        return episodeRepository.findAll().stream()
+-                .map(e -> e.getSaison().getSerie().getId())
+-                .distinct()
++        return serieRepository.findByUtilisateurId(utilisateurId).stream()
++                .map(Serie::getId)
+                 .map(serieId -> calculerProgression(utilisateurId, serieId))
+                 .filter(p -> p.statut() == statut)
+                 .toList();

@@ -1,0 +1,71 @@
+diff --git a/src/main/java/com/monprojet/series/security/JwtAuthenticationFilter.java b/src/main/java/com/monprojet/series/security/JwtAuthenticationFilter.java
+index 2c9e54c..3f14fa0 100644
+--- a/src/main/java/com/monprojet/series/security/JwtAuthenticationFilter.java
++++ b/src/main/java/com/monprojet/series/security/JwtAuthenticationFilter.java
+@@ -1,5 +1,8 @@
+ package com.monprojet.series.security;
+ 
++import com.monprojet.series.entity.StatutUtilisateur;
++import com.monprojet.series.entity.Utilisateur;
++import com.monprojet.series.repository.UtilisateurRepository;
+ import jakarta.servlet.FilterChain;
+ import jakarta.servlet.ServletException;
+ import jakarta.servlet.http.HttpServletRequest;
+@@ -23,6 +26,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
+ 
+     private final JwtService jwtService;
+     private final UtilisateurDetailsService utilisateurDetailsService;
++    private final UtilisateurRepository utilisateurRepository;
+ 
+     @Override
+     protected void doFilterInternal(
+@@ -54,13 +58,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
+ 
+         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+             try {
+-                UserDetails userDetails = utilisateurDetailsService.loadUserByUsername(email);
++                Utilisateur utilisateur = utilisateurRepository.findByEmail(email).orElse(null);
+ 
+-                if (jwtService.estValide(token, userDetails)) {
+-                    var authentication = new UsernamePasswordAuthenticationToken(
+-                            userDetails, null, userDetails.getAuthorities());
+-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+-                    SecurityContextHolder.getContext().setAuthentication(authentication);
++                // A valid token is not enough: an account that was refused (or
++                // is still pending) after the token was issued loses access at once.
++                if (utilisateur != null && utilisateur.getStatut() == StatutUtilisateur.APPROUVE) {
++                    UserDetails userDetails = utilisateurDetailsService.construire(utilisateur);
++
++                    if (jwtService.estValide(token, userDetails)) {
++                        var authentication = new UsernamePasswordAuthenticationToken(
++                                userDetails, null, userDetails.getAuthorities());
++                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
++                        SecurityContextHolder.getContext().setAuthentication(authentication);
++                    }
++                } else {
++                    log.debug("Compte non approuvé ou introuvable : {}", email);
+                 }
+             } catch (Exception e) {
+                 // User supprimé, token pointant vers un user inexistant, etc.
+diff --git a/src/main/java/com/monprojet/series/security/UtilisateurDetailsService.java b/src/main/java/com/monprojet/series/security/UtilisateurDetailsService.java
+index 5468826..4e1ac3d 100644
+--- a/src/main/java/com/monprojet/series/security/UtilisateurDetailsService.java
++++ b/src/main/java/com/monprojet/series/security/UtilisateurDetailsService.java
+@@ -23,11 +23,15 @@ public class UtilisateurDetailsService implements UserDetailsService {
+     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+         Utilisateur u = utilisateurRepository.findByEmail(email)
+                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur introuvable : " + email));
++        return construire(u);
++    }
+ 
++    // Shared with JwtAuthenticationFilter, which has already loaded the user
++    public UserDetails construire(Utilisateur u) {
+         return new User(
+                 u.getEmail(),
+                 u.getMotDePasse(),
+                 List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name()))
+         );
+     }
+-}
+\ No newline at end of file
++}
