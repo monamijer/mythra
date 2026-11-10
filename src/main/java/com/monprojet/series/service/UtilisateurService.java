@@ -44,13 +44,6 @@ public class UtilisateurService {
                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable : id=" + id));
     }
 
-    public Utilisateur creer(Utilisateur utilisateur) {
-        if (utilisateurRepository.existsByEmail(utilisateur.getEmail())) {
-            throw new BusinessException("Cet email est déjà utilisé : " + utilisateur.getEmail());
-        }
-        return utilisateurRepository.save(utilisateur);
-    }
-
     @Transactional(readOnly = true)
     public Utilisateur obtenirParEmail(String email) {
         return utilisateurRepository.findByEmail(email)

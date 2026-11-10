@@ -92,8 +92,11 @@ async function appelApi(url, options = {}) {
 
   const reponse = await fetch(url, { headers, ...options });
 
-  if (reponse.status === 401 || reponse.status === 403) {
-    if (!url.includes("/auth/")) deconnexion();
+  // On a protected route, 401/403 means the session is gone: back to the login screen.
+  // On /auth/ routes the server's own message (wrong password, account pending...)
+  // must reach the user, so those responses go through the normal error path below.
+  if ((reponse.status === 401 || reponse.status === 403) && !url.includes("/auth/")) {
+    deconnexion();
     throw new Error("Non authentifié");
   }
 
@@ -161,7 +164,7 @@ document.getElementById("form-connexion").addEventListener("submit", async (e) =
     setSession(data.token, data.utilisateurId, data.pseudo, data.role, data.statut);
     afficherApp(data.pseudo);
   } catch (err) {
-    document.getElementById("login-erreur").textContent = "Identifiants invalides";
+    document.getElementById("login-erreur").textContent = err.message;
   }
 });
 
