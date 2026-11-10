@@ -58,7 +58,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/image/**", "/favicon.ico").permitAll()
-                .requestMatchers("/api/tmdb/recherche", "/api/tmdb/populaires", "/api/tmdb/*/similaires").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
