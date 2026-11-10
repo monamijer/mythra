@@ -1,0 +1,118 @@
+diff --git a/.env.example b/.env.example
+index 56ad715..6c95873 100644
+--- a/.env.example
++++ b/.env.example
+@@ -9,3 +9,8 @@ TMDB_API_KEY=your_tmdb_api_key
+ 
+ # Secret used to sign the JWT tokens (at least 32 characters)
+ JWT_SECRET=replace-me-with-a-long-random-secret-of-at-least-32-characters
++
++# First administrator, created at startup when the database has none yet
++ADMIN_EMAIL=admin@seriestv.local
++ADMIN_PSEUDO=admin
++ADMIN_PASSWORD=choose-a-strong-password
+diff --git a/src/main/java/com/monprojet/series/config/AdminInitializer.java b/src/main/java/com/monprojet/series/config/AdminInitializer.java
+new file mode 100644
+index 0000000..2425fce
+--- /dev/null
++++ b/src/main/java/com/monprojet/series/config/AdminInitializer.java
+@@ -0,0 +1,62 @@
++// AdminInitializer.java
++package com.monprojet.series.config;
++
++import com.monprojet.series.entity.RoleUtilisateur;
++import com.monprojet.series.entity.StatutUtilisateur;
++import com.monprojet.series.entity.Utilisateur;
++import com.monprojet.series.repository.UtilisateurRepository;
++import lombok.RequiredArgsConstructor;
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.boot.ApplicationArguments;
++import org.springframework.boot.ApplicationRunner;
++import org.springframework.security.crypto.password.PasswordEncoder;
++import org.springframework.stereotype.Component;
++import org.springframework.transaction.annotation.Transactional;
++
++/**
++ * Creates the first administrator when the database has none yet.
++ * New accounts start as EN_ATTENTE and only an admin can approve them, so
++ * without this bootstrap a fresh database could never get a usable account.
++ */
++@Slf4j
++@Component
++@RequiredArgsConstructor
++public class AdminInitializer implements ApplicationRunner {
++
++    private final UtilisateurRepository utilisateurRepository;
++    private final PasswordEncoder passwordEncoder;
++
++    @Value("${app.admin.email}")
++    private String email;
++
++    @Value("${app.admin.pseudo}")
++    private String pseudo;
++
++    @Value("${app.admin.password}")
++    private String motDePasse;
++
++    @Override
++    @Transactional
++    public void run(ApplicationArguments args) {
++        if (utilisateurRepository.existsByRole(RoleUtilisateur.ADMIN)) {
++            return;
++        }
++        if (utilisateurRepository.existsByEmail(email) || utilisateurRepository.existsByPseudo(pseudo)) {
++            log.warn("Aucun administrateur, mais l'email ou le pseudo '{}' est déjà pris : "
++                    + "aucun compte administrateur initial n'a été créé.", email);
++            return;
++        }
++
++        Utilisateur admin = Utilisateur.builder()
++                .pseudo(pseudo)
++                .email(email)
++                .motDePasse(passwordEncoder.encode(motDePasse))
++                .role(RoleUtilisateur.ADMIN)
++                .statut(StatutUtilisateur.APPROUVE)
++                .build();
++        utilisateurRepository.save(admin);
++
++        log.info("Compte administrateur initial créé : {}", email);
++    }
++}
+diff --git a/src/main/java/com/monprojet/series/repository/UtilisateurRepository.java b/src/main/java/com/monprojet/series/repository/UtilisateurRepository.java
+index f45711e..f7ad4c6 100644
+--- a/src/main/java/com/monprojet/series/repository/UtilisateurRepository.java
++++ b/src/main/java/com/monprojet/series/repository/UtilisateurRepository.java
+@@ -1,5 +1,6 @@
+ package com.monprojet.series.repository;
+ 
++import com.monprojet.series.entity.RoleUtilisateur;
+ import com.monprojet.series.entity.StatutUtilisateur;
+ import com.monprojet.series.entity.Utilisateur;
+ import org.springframework.data.jpa.repository.JpaRepository;
+@@ -15,6 +16,10 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long>
+ 
+     boolean existsByEmail(String email);
+ 
++    boolean existsByPseudo(String pseudo);
++
++    boolean existsByRole(RoleUtilisateur role);
++
+     List<Utilisateur> findByStatutOrderByDateInscriptionAsc(StatutUtilisateur statut);
+ 
+     long countByStatut(StatutUtilisateur statut);
+diff --git a/src/main/resources/application.properties b/src/main/resources/application.properties
+index 5d2a71f..64717aa 100644
+--- a/src/main/resources/application.properties
++++ b/src/main/resources/application.properties
+@@ -34,3 +34,10 @@ tmdb.api.key=${TMDB_API_KEY:YOUR_TMDB_API_KEY_HERE}
+ # set JWT_SECRET (at least 32 characters) for any real use.
+ jwt.secret=${JWT_SECRET:changez-cette-cle-en-production-elle-doit-faire-au-moins-32-caracteres}
+ jwt.expiration-ms=86400000
++
++# --- Initial administrator ---
++# Created at startup only when the database has no administrator yet; without
++# one nobody could approve the first accounts. Override these values in .env.
++app.admin.email=${ADMIN_EMAIL:admin@seriestv.local}
++app.admin.pseudo=${ADMIN_PSEUDO:admin}
++app.admin.password=${ADMIN_PASSWORD:Admin1234!}

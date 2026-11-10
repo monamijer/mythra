@@ -1,0 +1,511 @@
+diff --git a/src/main/java/com/monprojet/series/controller/AuthController.java b/src/main/java/com/monprojet/series/controller/AuthController.java
+index c87874e..4ea71f2 100644
+--- a/src/main/java/com/monprojet/series/controller/AuthController.java
++++ b/src/main/java/com/monprojet/series/controller/AuthController.java
+@@ -4,108 +4,27 @@ package com.monprojet.series.controller;
+ import com.monprojet.series.dto.request.ConnexionRequest;
+ import com.monprojet.series.dto.request.InscriptionRequest;
+ import com.monprojet.series.dto.response.AuthResponse;
+-import com.monprojet.series.entity.StatutUtilisateur;
+-import com.monprojet.series.entity.Utilisateur;
+-import com.monprojet.series.exception.BusinessException;
+-import com.monprojet.series.repository.UtilisateurRepository;
+-import com.monprojet.series.security.JwtService;
++import com.monprojet.series.service.AuthService;
+ import jakarta.validation.Valid;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+-import org.springframework.security.authentication.AuthenticationManager;
+-import org.springframework.security.authentication.BadCredentialsException;
+-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+-import org.springframework.security.core.userdetails.UserDetails;
+-import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.web.bind.annotation.*;
+ 
+-import java.time.LocalDateTime;
+-
+ @RestController
+ @RequestMapping("/api/auth")
+ @RequiredArgsConstructor
+ public class AuthController {
+ 
+-    private final UtilisateurRepository utilisateurRepository;
+-    private final PasswordEncoder passwordEncoder;
+-    private final AuthenticationManager authenticationManager;
+-    private final JwtService jwtService;
++    private final AuthService authService;
+ 
+     @PostMapping("/inscription")
+     public ResponseEntity<AuthResponse> inscription(@Valid @RequestBody InscriptionRequest request) {
+-        if (utilisateurRepository.existsByEmail(request.email())) {
+-            throw new BusinessException("Cet email est déjà utilisé.");
+-        }
+-
+-        Utilisateur utilisateur = Utilisateur.builder()
+-                .pseudo(request.pseudo())
+-                .email(request.email())
+-                .motDePasse(passwordEncoder.encode(request.motDePasse()))
+-                // statut = EN_ATTENTE par défaut (voir l'entité)
+-                .build();
+-
+-        utilisateur = utilisateurRepository.save(utilisateur);
+-
+-        // Pas de token tant que le compte n'est pas approuvé.
+-        // Le front affichera un message d'attente.
+-        return ResponseEntity.status(HttpStatus.CREATED)
+-                .body(new AuthResponse(
+-                        null, // pas de token
+-                        utilisateur.getId(),
+-                        utilisateur.getPseudo(),
+-                        utilisateur.getRole().name(),
+-                        utilisateur.getStatut().name(),
+-                        "Votre compte a été créé et est en attente d'approbation par un administrateur."
+-                ));
++        return ResponseEntity.status(HttpStatus.CREATED).body(authService.inscrire(request));
+     }
+ 
+     @PostMapping("/connexion")
+     public AuthResponse connexion(@Valid @RequestBody ConnexionRequest request) {
+-        // 1. Authentification classique (email + mot de passe)
+-        try {
+-            authenticationManager.authenticate(
+-                    new UsernamePasswordAuthenticationToken(request.email(), request.motDePasse())
+-            );
+-        } catch (BadCredentialsException e) {
+-            throw new BusinessException("Email ou mot de passe incorrect.");
+-        }
+-
+-        Utilisateur utilisateur = utilisateurRepository.findByEmail(request.email())
+-                .orElseThrow(() -> new BusinessException("Email ou mot de passe incorrect."));
+-
+-        // 2. Vérification du statut AVANT de générer le token
+-        if (utilisateur.getStatut() == StatutUtilisateur.EN_ATTENTE) {
+-            throw new BusinessException(
+-                    "Votre compte est en attente d'approbation par un administrateur."
+-            );
+-        }
+-        if (utilisateur.getStatut() == StatutUtilisateur.REFUSE) {
+-            throw new BusinessException(
+-                    "Votre compte a été refusé. Contactez un administrateur."
+-            );
+-        }
+-
+-        // 3. Mise à jour de la dernière connexion
+-        utilisateur.setDerniereConnexion(LocalDateTime.now());
+-        utilisateurRepository.save(utilisateur);
+-
+-        // 4. Génération du token
+-        String token = jwtService.genererToken(
+-                (UserDetails) org.springframework.security.core.userdetails.User
+-                        .withUsername(utilisateur.getEmail())
+-                        .password(utilisateur.getMotDePasse())
+-                        .authorities("ROLE_" + utilisateur.getRole().name())
+-                        .build()
+-        );
+-
+-        return new AuthResponse(
+-                token,
+-                utilisateur.getId(),
+-                utilisateur.getPseudo(),
+-                utilisateur.getRole().name(),
+-                utilisateur.getStatut().name(),
+-                "Connexion réussie."
+-        );
++        return authService.connecter(request);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/java/com/monprojet/series/dto/request/UtilisateurRequest.java b/src/main/java/com/monprojet/series/dto/request/UtilisateurRequest.java
+deleted file mode 100644
+index 40538bd..0000000
+--- a/src/main/java/com/monprojet/series/dto/request/UtilisateurRequest.java
++++ /dev/null
+@@ -1,10 +0,0 @@
+-// UtilisateurRequest.java
+-package com.monprojet.series.dto.request;
+-
+-import jakarta.validation.constraints.Email;
+-import jakarta.validation.constraints.NotBlank;
+-
+-public record UtilisateurRequest(
+-        @NotBlank String pseudo,
+-        @NotBlank @Email String email
+-) {}
+\ No newline at end of file
+diff --git a/src/main/java/com/monprojet/series/exception/CompteNonApprouveException.java b/src/main/java/com/monprojet/series/exception/CompteNonApprouveException.java
+new file mode 100644
+index 0000000..c42e823
+--- /dev/null
++++ b/src/main/java/com/monprojet/series/exception/CompteNonApprouveException.java
+@@ -0,0 +1,9 @@
++// CompteNonApprouveException.java
++package com.monprojet.series.exception;
++
++// Valid credentials but the account is pending or refused: mapped to HTTP 403
++public class CompteNonApprouveException extends RuntimeException {
++    public CompteNonApprouveException(String message) {
++        super(message);
++    }
++}
+diff --git a/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java b/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
+index f5b41b4..01fa614 100644
+--- a/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
++++ b/src/main/java/com/monprojet/series/exception/GlobalExceptionHandler.java
+@@ -1,78 +1,132 @@
+ // GlobalExceptionHandler.java
+ package com.monprojet.series.exception;
+ 
++import lombok.extern.slf4j.Slf4j;
++import org.springframework.dao.DataIntegrityViolationException;
+ import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
++import org.springframework.http.converter.HttpMessageNotReadableException;
+ import org.springframework.security.access.AccessDeniedException;
++import org.springframework.web.HttpRequestMethodNotSupportedException;
+ import org.springframework.web.bind.MethodArgumentNotValidException;
++import org.springframework.web.bind.MissingServletRequestParameterException;
+ import org.springframework.web.bind.annotation.ExceptionHandler;
+ import org.springframework.web.bind.annotation.RestControllerAdvice;
+-
+-import com.monprojet.series.exception.TmdbIndisponibleException;
++import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
++import org.springframework.web.servlet.resource.NoResourceFoundException;
+ 
+ import java.util.List;
+ 
++/** Turns every exception into the same JSON error shape with the right HTTP status. */
++@Slf4j
+ @RestControllerAdvice
+ public class GlobalExceptionHandler {
+ 
+-    @ExceptionHandler(ResourceNotFoundException.class)
+-    public ResponseEntity<ApiErrorResponse> gererIntrouvable(ResourceNotFoundException ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.NOT_FOUND.value(), "Ressource introuvable", ex.getMessage());
+-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+-    }
++    // ---------- 400: the request itself is wrong ----------
+ 
+-    @ExceptionHandler(BusinessException.class)
+-    public ResponseEntity<ApiErrorResponse> gererRegleMetier(BusinessException ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.CONFLICT.value(), "Règle métier violée", ex.getMessage());
+-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+-    }
+-
+-    // Triggered by @Valid failures on @RequestBody DTOs (SerieRequest,
+-    // UtilisateurRequest...)
++    // @Valid failures on request bodies (SerieRequest, InscriptionRequest...)
+     @ExceptionHandler(MethodArgumentNotValidException.class)
+     public ResponseEntity<ApiErrorResponse> gererValidation(MethodArgumentNotValidException ex) {
+         List<String> details = ex.getBindingResult().getFieldErrors().stream()
+                 .map(err -> err.getField() + " : " + err.getDefaultMessage())
+                 .toList();
+-        var body = new ApiErrorResponse(
+-                HttpStatus.BAD_REQUEST.value(), "Requête invalide",
++        return reponse(HttpStatus.BAD_REQUEST, "Requête invalide",
+                 "Un ou plusieurs champs sont invalides", details);
+-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+     }
+ 
+-    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+-    public ResponseEntity<ApiErrorResponse> gererRouteIntrouvable(
+-            org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.NOT_FOUND.value(), "Route introuvable", ex.getMessage());
+-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
++    // Missing body, malformed JSON, or a value that is not part of an enum
++    @ExceptionHandler(HttpMessageNotReadableException.class)
++    public ResponseEntity<ApiErrorResponse> gererCorpsIllisible(HttpMessageNotReadableException ex) {
++        return reponse(HttpStatus.BAD_REQUEST, "Requête illisible",
++                "Le corps de la requête est absent, mal formé ou contient une valeur non valide.");
+     }
+ 
+-    // Thrown by @PreAuthorize checks: must be 403, not swallowed by the catch-all below
++    // e.g. ?statut=XYZ or /series/abc
++    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
++    public ResponseEntity<ApiErrorResponse> gererTypeInvalide(MethodArgumentTypeMismatchException ex) {
++        return reponse(HttpStatus.BAD_REQUEST, "Paramètre invalide",
++                "La valeur '" + ex.getValue() + "' n'est pas valide pour le paramètre '" + ex.getName() + "'.");
++    }
++
++    @ExceptionHandler(MissingServletRequestParameterException.class)
++    public ResponseEntity<ApiErrorResponse> gererParametreManquant(MissingServletRequestParameterException ex) {
++        return reponse(HttpStatus.BAD_REQUEST, "Paramètre manquant",
++                "Le paramètre '" + ex.getParameterName() + "' est obligatoire.");
++    }
++
++    // ---------- 401 / 403: who are you, and may you ----------
++
++    @ExceptionHandler(IdentifiantsInvalidesException.class)
++    public ResponseEntity<ApiErrorResponse> gererIdentifiantsInvalides(IdentifiantsInvalidesException ex) {
++        return reponse(HttpStatus.UNAUTHORIZED, "Authentification échouée", ex.getMessage());
++    }
++
++    @ExceptionHandler(CompteNonApprouveException.class)
++    public ResponseEntity<ApiErrorResponse> gererCompteNonApprouve(CompteNonApprouveException ex) {
++        return reponse(HttpStatus.FORBIDDEN, "Compte non approuvé", ex.getMessage());
++    }
++
++    // Thrown by the @PreAuthorize checks
+     @ExceptionHandler(AccessDeniedException.class)
+     public ResponseEntity<ApiErrorResponse> gererAccesRefuse(AccessDeniedException ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.FORBIDDEN.value(), "Accès refusé",
++        return reponse(HttpStatus.FORBIDDEN, "Accès refusé",
+                 "Vous n'avez pas le droit d'accéder à cette ressource.");
+-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+     }
+ 
+-    // Safety net — never leaks a raw stack trace to the client
+-    @ExceptionHandler(Exception.class)
+-    public ResponseEntity<ApiErrorResponse> gererErreurInattendue(Exception ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+-                "Erreur interne",
+-                "Une erreur inattendue est survenue");
+-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
++    // ---------- 404 / 405 ----------
++
++    @ExceptionHandler(ResourceNotFoundException.class)
++    public ResponseEntity<ApiErrorResponse> gererIntrouvable(ResourceNotFoundException ex) {
++        return reponse(HttpStatus.NOT_FOUND, "Ressource introuvable", ex.getMessage());
++    }
++
++    @ExceptionHandler(NoResourceFoundException.class)
++    public ResponseEntity<ApiErrorResponse> gererRouteIntrouvable(NoResourceFoundException ex) {
++        return reponse(HttpStatus.NOT_FOUND, "Route introuvable", ex.getMessage());
+     }
+ 
++    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
++    public ResponseEntity<ApiErrorResponse> gererMethodeNonSupportee(HttpRequestMethodNotSupportedException ex) {
++        return reponse(HttpStatus.METHOD_NOT_ALLOWED, "Méthode non autorisée",
++                "La méthode " + ex.getMethod() + " n'est pas disponible sur cette route.");
++    }
++
++    // ---------- 409: the request conflicts with the current data ----------
++
++    @ExceptionHandler(BusinessException.class)
++    public ResponseEntity<ApiErrorResponse> gererRegleMetier(BusinessException ex) {
++        return reponse(HttpStatus.CONFLICT, "Règle métier violée", ex.getMessage());
++    }
++
++    // Last line of defence behind the explicit checks (unique or foreign key constraint)
++    @ExceptionHandler(DataIntegrityViolationException.class)
++    public ResponseEntity<ApiErrorResponse> gererIntegrite(DataIntegrityViolationException ex) {
++        log.warn("Contrainte d'intégrité violée : {}", ex.getMostSpecificCause().getMessage());
++        return reponse(HttpStatus.CONFLICT, "Conflit de données",
++                "Cette opération viole une contrainte d'intégrité (valeur déjà utilisée ou ressource encore référencée).");
++    }
++
++    // ---------- 5xx ----------
++
+     @ExceptionHandler(TmdbIndisponibleException.class)
+     public ResponseEntity<ApiErrorResponse> gererTmdbIndisponible(TmdbIndisponibleException ex) {
+-        var body = new ApiErrorResponse(
+-                HttpStatus.SERVICE_UNAVAILABLE.value(), "Service externe indisponible", ex.getMessage());
+-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
++        return reponse(HttpStatus.SERVICE_UNAVAILABLE, "Service externe indisponible", ex.getMessage());
++    }
++
++    // Safety net: the details go to the log, never to the client
++    @ExceptionHandler(Exception.class)
++    public ResponseEntity<ApiErrorResponse> gererErreurInattendue(Exception ex) {
++        log.error("Erreur inattendue", ex);
++        return reponse(HttpStatus.INTERNAL_SERVER_ERROR, "Erreur interne", "Une erreur inattendue est survenue");
++    }
++
++    private ResponseEntity<ApiErrorResponse> reponse(HttpStatus statut, String erreur, String message) {
++        return reponse(statut, erreur, message, List.of());
++    }
++
++    private ResponseEntity<ApiErrorResponse> reponse(
++            HttpStatus statut, String erreur, String message, List<String> details) {
++        return ResponseEntity.status(statut)
++                .body(new ApiErrorResponse(statut.value(), erreur, message, details));
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/main/java/com/monprojet/series/exception/IdentifiantsInvalidesException.java b/src/main/java/com/monprojet/series/exception/IdentifiantsInvalidesException.java
+new file mode 100644
+index 0000000..ceafebc
+--- /dev/null
++++ b/src/main/java/com/monprojet/series/exception/IdentifiantsInvalidesException.java
+@@ -0,0 +1,9 @@
++// IdentifiantsInvalidesException.java
++package com.monprojet.series.exception;
++
++// Wrong email or password: mapped to HTTP 401
++public class IdentifiantsInvalidesException extends RuntimeException {
++    public IdentifiantsInvalidesException() {
++        super("Email ou mot de passe incorrect.");
++    }
++}
+diff --git a/src/main/java/com/monprojet/series/mapper/UtilisateurMapper.java b/src/main/java/com/monprojet/series/mapper/UtilisateurMapper.java
+index 71860c6..016c4d2 100644
+--- a/src/main/java/com/monprojet/series/mapper/UtilisateurMapper.java
++++ b/src/main/java/com/monprojet/series/mapper/UtilisateurMapper.java
+@@ -1,7 +1,6 @@
+ // UtilisateurMapper.java
+ package com.monprojet.series.mapper;
+ 
+-import com.monprojet.series.dto.request.UtilisateurRequest;
+ import com.monprojet.series.dto.response.UtilisateurResponse;
+ import com.monprojet.series.entity.Utilisateur;
+ 
+@@ -9,13 +8,6 @@ public final class UtilisateurMapper {
+ 
+     private UtilisateurMapper() {}
+ 
+-    public static Utilisateur toEntity(UtilisateurRequest request) {
+-        return Utilisateur.builder()
+-                .pseudo(request.pseudo())
+-                .email(request.email())
+-                .build();
+-    }
+-
+     public static UtilisateurResponse toResponse(Utilisateur utilisateur) {
+         return new UtilisateurResponse(
+                 utilisateur.getId(),
+diff --git a/src/main/java/com/monprojet/series/service/AuthService.java b/src/main/java/com/monprojet/series/service/AuthService.java
+new file mode 100644
+index 0000000..f660fea
+--- /dev/null
++++ b/src/main/java/com/monprojet/series/service/AuthService.java
+@@ -0,0 +1,88 @@
++// AuthService.java
++package com.monprojet.series.service;
++
++import com.monprojet.series.dto.request.ConnexionRequest;
++import com.monprojet.series.dto.request.InscriptionRequest;
++import com.monprojet.series.dto.response.AuthResponse;
++import com.monprojet.series.entity.StatutUtilisateur;
++import com.monprojet.series.entity.Utilisateur;
++import com.monprojet.series.exception.BusinessException;
++import com.monprojet.series.exception.CompteNonApprouveException;
++import com.monprojet.series.exception.IdentifiantsInvalidesException;
++import com.monprojet.series.repository.UtilisateurRepository;
++import com.monprojet.series.security.JwtService;
++import com.monprojet.series.security.UtilisateurDetailsService;
++import lombok.RequiredArgsConstructor;
++import org.springframework.security.authentication.AuthenticationManager;
++import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
++import org.springframework.security.core.AuthenticationException;
++import org.springframework.security.crypto.password.PasswordEncoder;
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import java.time.LocalDateTime;
++
++@Service
++@RequiredArgsConstructor
++@Transactional
++public class AuthService {
++
++    private final UtilisateurRepository utilisateurRepository;
++    private final PasswordEncoder passwordEncoder;
++    private final AuthenticationManager authenticationManager;
++    private final UtilisateurDetailsService utilisateurDetailsService;
++    private final JwtService jwtService;
++
++    /** Creates an account in the EN_ATTENTE status: no token until an admin approves it. */
++    public AuthResponse inscrire(InscriptionRequest request) {
++        if (utilisateurRepository.existsByEmail(request.email())) {
++            throw new BusinessException("Cet email est déjà utilisé.");
++        }
++        if (utilisateurRepository.existsByPseudo(request.pseudo())) {
++            throw new BusinessException("Ce pseudo est déjà utilisé.");
++        }
++
++        Utilisateur utilisateur = utilisateurRepository.save(Utilisateur.builder()
++                .pseudo(request.pseudo())
++                .email(request.email())
++                .motDePasse(passwordEncoder.encode(request.motDePasse()))
++                .build()); // role USER and status EN_ATTENTE come from the entity defaults
++
++        return reponse(null, utilisateur,
++                "Votre compte a été créé et est en attente d'approbation par un administrateur.");
++    }
++
++    public AuthResponse connecter(ConnexionRequest request) {
++        // 1. Credentials check (BCrypt comparison is done by Spring Security)
++        try {
++            authenticationManager.authenticate(
++                    new UsernamePasswordAuthenticationToken(request.email(), request.motDePasse()));
++        } catch (AuthenticationException e) {
++            throw new IdentifiantsInvalidesException();
++        }
++
++        Utilisateur utilisateur = utilisateurRepository.findByEmail(request.email())
++                .orElseThrow(IdentifiantsInvalidesException::new);
++
++        // 2. Account status, checked before any token is issued
++        if (utilisateur.getStatut() == StatutUtilisateur.EN_ATTENTE) {
++            throw new CompteNonApprouveException(
++                    "Votre compte est en attente d'approbation par un administrateur.");
++        }
++        if (utilisateur.getStatut() == StatutUtilisateur.REFUSE) {
++            throw new CompteNonApprouveException(
++                    "Votre compte a été refusé. Contactez un administrateur.");
++        }
++
++        // 3. Last login date and token
++        utilisateur.setDerniereConnexion(LocalDateTime.now());
++        utilisateurRepository.save(utilisateur);
++
++        String token = jwtService.genererToken(utilisateurDetailsService.construire(utilisateur));
++        return reponse(token, utilisateur, "Connexion réussie.");
++    }
++
++    private AuthResponse reponse(String token, Utilisateur u, String message) {
++        return new AuthResponse(token, u.getId(), u.getPseudo(), u.getRole().name(), u.getStatut().name(), message);
++    }
++}
+diff --git a/src/main/java/com/monprojet/series/service/UtilisateurService.java b/src/main/java/com/monprojet/series/service/UtilisateurService.java
+index 92d5bd1..d49b1fe 100644
+--- a/src/main/java/com/monprojet/series/service/UtilisateurService.java
++++ b/src/main/java/com/monprojet/series/service/UtilisateurService.java
+@@ -44,13 +44,6 @@ public class UtilisateurService {
+                 .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable : id=" + id));
+     }
+ 
+-    public Utilisateur creer(Utilisateur utilisateur) {
+-        if (utilisateurRepository.existsByEmail(utilisateur.getEmail())) {
+-            throw new BusinessException("Cet email est déjà utilisé : " + utilisateur.getEmail());
+-        }
+-        return utilisateurRepository.save(utilisateur);
+-    }
+-
+     @Transactional(readOnly = true)
+     public Utilisateur obtenirParEmail(String email) {
+         return utilisateurRepository.findByEmail(email)
+diff --git a/src/main/resources/static/js/app.js b/src/main/resources/static/js/app.js
+index ea5afa9..bfb6185 100644
+--- a/src/main/resources/static/js/app.js
++++ b/src/main/resources/static/js/app.js
+@@ -92,8 +92,11 @@ async function appelApi(url, options = {}) {
+ 
+   const reponse = await fetch(url, { headers, ...options });
+ 
+-  if (reponse.status === 401 || reponse.status === 403) {
+-    if (!url.includes("/auth/")) deconnexion();
++  // On a protected route, 401/403 means the session is gone: back to the login screen.
++  // On /auth/ routes the server's own message (wrong password, account pending...)
++  // must reach the user, so those responses go through the normal error path below.
++  if ((reponse.status === 401 || reponse.status === 403) && !url.includes("/auth/")) {
++    deconnexion();
+     throw new Error("Non authentifié");
+   }
+ 
+@@ -161,7 +164,7 @@ document.getElementById("form-connexion").addEventListener("submit", async (e) =
+     setSession(data.token, data.utilisateurId, data.pseudo, data.role, data.statut);
+     afficherApp(data.pseudo);
+   } catch (err) {
+-    document.getElementById("login-erreur").textContent = "Identifiants invalides";
++    document.getElementById("login-erreur").textContent = err.message;
+   }
+ });
+ 
