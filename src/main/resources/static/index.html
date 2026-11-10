@@ -142,7 +142,7 @@
             <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="tendances">Tendances</button></li>
             <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="mieux-notees">Mieux notées</button></li>
             <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="diffusees-bientot">Bientôt diffusées</button></li>
-            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-focus="input-acteur">Rechercher un acteur</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-mode="acteurs" data-focus="input-recherche">Rechercher un acteur</button></li>
           </ul>
         </section>
         <section class="drawer-section" aria-labelledby="dr-ins">
@@ -210,43 +210,57 @@
       <section id="decouvrir" class="tab-panel" role="tabpanel"
                aria-labelledby="onglet-decouvrir" tabindex="0" hidden>
 
-        <form id="form-recherche-acteur" class="card form-inline">
-          <label for="input-acteur" class="sr-only">Rechercher un acteur</label>
-          <input type="text" id="input-acteur" placeholder="Rechercher un acteur...">
-          <button type="submit">Rechercher</button>
-        </form>
+        <div class="hero">
+          <h2 class="hero-titre">Trouvez votre prochaine série</h2>
+          <p class="hero-texte">Explorez le catalogue TMDB, cherchez par titre ou par acteur, puis ajoutez vos découvertes à votre bibliothèque.</p>
 
-        <div id="resultats-acteurs" class="grid" aria-live="polite"></div>
-
-        <div class="sous-nav" role="group" aria-label="Catégories de séries">
-          <button type="button" class="souscat-btn" data-cat="populaires">Populaires</button>
-          <button type="button" class="souscat-btn" data-cat="tendances">Tendances</button>
-          <button type="button" class="souscat-btn" data-cat="mieux-notees">Mieux notées</button>
-          <button type="button" class="souscat-btn" data-cat="diffusees-bientot">Bientôt</button>
+          <form id="form-recherche-tmdb" class="hero-recherche" role="search">
+            <div class="mode-recherche" role="group" aria-label="Type de recherche">
+              <button type="button" class="mode-btn active" data-mode="series" aria-pressed="true">Séries</button>
+              <button type="button" class="mode-btn" data-mode="acteurs" aria-pressed="false">Acteurs</button>
+            </div>
+            <div class="hero-champ">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <label for="input-recherche" class="sr-only">Rechercher</label>
+              <input type="search" id="input-recherche" placeholder="Rechercher une série..." autocomplete="off">
+            </div>
+            <button type="submit" class="btn-primaire">Rechercher</button>
+          </form>
         </div>
 
-        <form id="form-recherche-tmdb" class="card form-inline">
-          <label for="input-recherche" class="sr-only">Rechercher une série</label>
-          <input type="text" id="input-recherche" placeholder="Rechercher une série...">
-          <button type="submit">Rechercher</button>
-        </form>
+        <div id="resultats-acteurs" class="grid zone-acteurs" aria-live="polite"></div>
 
-        <form id="form-decouvrir" class="card form-inline">
-          <label for="select-genre" class="sr-only">Genre</label>
-          <select id="select-genre">
-            <option value="">Tous les genres</option>
-          </select>
+        <div class="sous-nav" role="group" aria-label="Catégories de séries">
+          <button type="button" class="souscat-btn" data-cat="populaires" aria-pressed="false"><i class="bi bi-fire" aria-hidden="true"></i> Populaires</button>
+          <button type="button" class="souscat-btn" data-cat="tendances" aria-pressed="false"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> Tendances</button>
+          <button type="button" class="souscat-btn" data-cat="mieux-notees" aria-pressed="false"><i class="bi bi-star" aria-hidden="true"></i> Mieux notées</button>
+          <button type="button" class="souscat-btn" data-cat="diffusees-bientot" aria-pressed="false"><i class="bi bi-calendar-event" aria-hidden="true"></i> Bientôt</button>
+        </div>
 
-          <label for="input-annee" class="sr-only">Année</label>
-          <input type="number" id="input-annee" placeholder="Année" min="1900" max="2100">
+        <details class="filtres" open>
+          <summary><i class="bi bi-sliders" aria-hidden="true"></i> Filtres avancés</summary>
+          <form id="form-decouvrir" class="filtres-grille">
+            <div class="champ">
+              <label for="select-genre">Genre</label>
+              <select id="select-genre"><option value="">Tous les genres</option></select>
+            </div>
+            <div class="champ">
+              <label for="input-annee">Année de sortie</label>
+              <input type="number" id="input-annee" placeholder="ex. 2024" min="1900" max="2100">
+            </div>
+            <div class="champ">
+              <label for="input-note-min">Note minimale</label>
+              <input type="number" id="input-note-min" placeholder="0 – 10" min="0" max="10" step="0.5">
+            </div>
+            <div class="filtres-actions">
+              <button type="submit" class="btn-primaire">Filtrer</button>
+              <button type="button" id="btn-reset-filtres" class="btn-secondaire">Réinitialiser</button>
+            </div>
+          </form>
+        </details>
 
-          <label for="input-note-min" class="sr-only">Note minimale</label>
-          <input type="number" id="input-note-min" placeholder="Note min." min="0" max="10" step="0.5">
-
-          <button type="submit">Filtrer</button>
-        </form>
-
-        <div id="resultats-tmdb" class="grid" aria-live="polite"></div>
+        <h3 id="titre-resultats" class="titre-resultats" tabindex="-1"></h3>
+        <div id="resultats-tmdb" class="grid" aria-live="polite" aria-busy="false"></div>
 
         <nav id="pagination-tmdb" class="pagination hidden" aria-label="Pagination des résultats">
           <button type="button" id="btn-page-prec" class="btn-page">← Précédent</button>

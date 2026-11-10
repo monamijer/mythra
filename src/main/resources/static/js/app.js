@@ -119,7 +119,14 @@ function attacherPlaceholder(img) {
 }
 
 function messageVide(texte) {
-  return `<p class="aucun-resultat" role="status">${texte}</p>`;
+  return `<p class="aucun-resultat" role="status"><i class="bi bi-binoculars" aria-hidden="true"></i><span>${texte}</span></p>`;
+}
+
+/** Placeholder cards shown while TMDB results load. */
+function squelettes(n = 10) {
+  return Array.from({ length: n }, () =>
+    '<div class="serie-card skeleton" aria-hidden="true"><div class="sk-img"></div><div class="contenu"><div class="sk-ligne"></div><div class="sk-ligne court"></div></div></div>'
+  ).join("") + '<span class="sr-only" role="status">Chargement des résultats</span>';
 }
 function messageChargement(texte = "Chargement...") {
   return `<p class="chargement" role="status">${texte}</p>`;
@@ -317,6 +324,7 @@ drawer.querySelectorAll(".drawer-link").forEach((lien) => {
       sel.value = statut;
       sel.dispatchEvent(new Event("change"));
     }
+    if (lien.dataset.mode) definirModeRecherche(lien.dataset.mode);
     if (focus) document.getElementById(focus)?.focus();
     else document.getElementById("contenu-principal").focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1174,7 +1182,8 @@ function construireUrlTmdb(requete, page) {
 
 async function chargerTmdb(url, requete) {
   const conteneur = document.getElementById("resultats-tmdb");
-  conteneur.innerHTML = messageChargement();
+  conteneur.innerHTML = squelettes(10);
+  conteneur.setAttribute("aria-busy", "true");
   cacherPagination();
 
   let reponse;
@@ -1183,6 +1192,8 @@ async function chargerTmdb(url, requete) {
   } catch (err) {
     conteneur.innerHTML = messageErreur(err.message);
     return;
+  } finally {
+    conteneur.setAttribute("aria-busy", "false");
   }
 
   if (Array.isArray(reponse)) {
@@ -1202,9 +1213,38 @@ const ROUTES_TMDB = {
   "diffusees-bientot": "diffusees-bientot",
 };
 
+const TITRES_CATEGORIES = {
+  populaires: "Séries populaires",
+  tendances: "Séries tendances",
+  "mieux-notees": "Séries les mieux notées",
+  "diffusees-bientot": "Bientôt à l'écran",
+};
+
+function definirTitreResultats(texte) {
+  document.getElementById("titre-resultats").textContent = texte;
+}
+
+function desactiverCategories() {
+  document.querySelectorAll(".souscat-btn").forEach((b) => {
+    b.classList.remove("active");
+    b.setAttribute("aria-pressed", "false");
+  });
+}
+
+function viderActeurs() {
+  const zone = document.getElementById("resultats-acteurs");
+  zone.innerHTML = "";
+  zone.classList.add("grid");
+}
+
 async function chargerCategorieTmdb(cat, bouton) {
-  document.querySelectorAll(".souscat-btn").forEach((b) => b.classList.remove("active"));
-  bouton?.classList.add("active");
+  desactiverCategories();
+  if (bouton) {
+    bouton.classList.add("active");
+    bouton.setAttribute("aria-pressed", "true");
+  }
+  viderActeurs();
+  definirTitreResultats(TITRES_CATEGORIES[cat] || "");
 
   const requete = { type: "categorie", categorie: cat, params: {}, page: 1 };
   await chargerTmdb(construireUrlTmdb(requete, 1), requete);
@@ -1214,14 +1254,50 @@ document.querySelectorAll(".souscat-btn").forEach((btn) => {
   btn.addEventListener("click", () => chargerCategorieTmdb(btn.dataset.cat, btn));
 });
 
-document.getElementById("form-recherche-tmdb").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const titre = document.getElementById("input-recherche").value;
-  if (!titre) return;
+// --- Unified hero search (series or actors) ---
 
+let modeRecherche = "series";
+
+function definirModeRecherche(mode) {
+  modeRecherche = mode;
+  document.querySelectorAll(".mode-btn").forEach((b) => {
+    const actif = b.dataset.mode === mode;
+    b.classList.toggle("active", actif);
+    b.setAttribute("aria-pressed", String(actif));
+  });
+  document.getElementById("input-recherche").placeholder =
+    mode === "acteurs" ? "Rechercher un acteur..." : "Rechercher une série...";
+}
+
+document.querySelectorAll(".mode-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    definirModeRecherche(btn.dataset.mode);
+    document.getElementById("input-recherche").focus();
+  });
+});
+
+async function rechercherSeries(titre) {
+  desactiverCategories();
+  viderActeurs();
+  definirTitreResultats(`Résultats pour « ${titre} »`);
   const requete = { type: "recherche", params: { titre }, page: 1 };
   await chargerTmdb(construireUrlTmdb(requete, 1), requete);
+}
+
+document.getElementById("form-recherche-tmdb").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const terme = document.getElementById("input-recherche").value.trim();
+  if (!terme) return;
+  if (modeRecherche === "acteurs") await rechercherActeurs(terme);
+  else await rechercherSeries(terme);
 });
+
+// --- Advanced filters ---
+
+// Collapse the filter panel by default on small screens
+if (window.matchMedia("(max-width: 720px)").matches) {
+  document.querySelector(".filtres")?.removeAttribute("open");
+}
 
 document.getElementById("form-decouvrir").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1234,8 +1310,16 @@ document.getElementById("form-decouvrir").addEventListener("submit", async (e) =
   if (annee) params.annee = annee;
   if (noteMin) params.noteMin = noteMin;
 
+  desactiverCategories();
+  viderActeurs();
+  definirTitreResultats("Séries filtrées");
   const requete = { type: "decouvrir", params, page: 1 };
   await chargerTmdb(construireUrlTmdb(requete, 1), requete);
+});
+
+document.getElementById("btn-reset-filtres").addEventListener("click", () => {
+  document.getElementById("form-decouvrir").reset();
+  chargerCategorieTmdb("populaires", document.querySelector(".souscat-btn[data-cat='populaires']"));
 });
 
 document.getElementById("btn-page-prec").addEventListener("click", () => {
@@ -1272,13 +1356,13 @@ async function chargerGenres() {
 
 let acteursEnMemoire = [];
 
-document.getElementById("form-recherche-acteur").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const nom = document.getElementById("input-acteur").value;
+async function rechercherActeurs(nom) {
   if (!nom) return;
 
   const conteneur = document.getElementById("resultats-acteurs");
+  conteneur.classList.add("grid");
   conteneur.innerHTML = messageChargement();
+  definirTitreResultats("");
 
   let acteurs;
   try {
@@ -1296,7 +1380,7 @@ document.getElementById("form-recherche-acteur").addEventListener("submit", asyn
   }
 
   rendreActeurs();
-});
+}
 
 function rendreActeurs() {
   const conteneur = document.getElementById("resultats-acteurs");
