@@ -271,6 +271,13 @@
             <!-- ===== STATS ===== -->
       <section id="stats" class="tab-panel" role="tabpanel"
                aria-labelledby="onglet-stats" tabindex="0" hidden>
+        <div class="page-banner">
+          <div>
+            <h2>Mes statistiques</h2>
+            <p>Votre activité de visionnage en un coup d'œil.</p>
+          </div>
+          <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+        </div>
         <div id="stats-contenu" aria-live="polite"></div>
       </section>
 
@@ -278,9 +285,17 @@
       <section id="admin" class="tab-panel" role="tabpanel"
                aria-labelledby="onglet-admin" tabindex="0" hidden>
 
-        <div id="admin-stats" class="admin-stats"></div>
+        <div class="page-banner">
+          <div>
+            <h2>Administration</h2>
+            <p>Gérez les comptes et suivez l'état des utilisateurs.</p>
+          </div>
+          <i class="bi bi-shield-lock" aria-hidden="true"></i>
+        </div>
 
-        <div class="card form-inline">
+        <div id="admin-stats" class="admin-resume" aria-live="polite"></div>
+
+        <div class="toolbar">
           <label for="select-statut-admin" class="sr-only">Filtrer par statut</label>
           <select id="select-statut-admin">
             <option value="">Tous les utilisateurs</option>
@@ -288,7 +303,7 @@
             <option value="APPROUVE">Approuvés</option>
             <option value="REFUSE">Refusés</option>
           </select>
-          <button type="button" id="btn-rafraichir-admin">Rafraîchir</button>
+          <button type="button" id="btn-rafraichir-admin" class="btn-secondaire"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Rafraîchir</button>
         </div>
 
         <div id="admin-liste" class="admin-liste" aria-live="polite"></div>

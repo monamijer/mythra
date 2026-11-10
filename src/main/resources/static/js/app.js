@@ -107,6 +107,12 @@ async function appelApi(url, options = {}) {
   return reponse.status === 204 ? null : reponse.json();
 }
 
+/** Escapes untrusted text before it is inserted into an HTML template. */
+function esc(valeur) {
+  return String(valeur ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function creerElement(html) {
   const conteneur = document.createElement("div");
   conteneur.innerHTML = html.trim();
@@ -1442,15 +1448,45 @@ async function chargerStatsAdmin() {
   conteneur.innerHTML = messageChargement();
   try {
     const s = await appelApi(`${API}/admin/utilisateurs/statistiques`);
+    const total = s.totalUtilisateurs || 0;
+    const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+    const segments = [
+      { nom: "Approuvés", n: s.approuves, couleur: "var(--c-vu)" },
+      { nom: "En attente", n: s.enAttente, couleur: "var(--c-avoir)" },
+      { nom: "Refusés", n: s.refuses, couleur: "var(--c-abandon)" },
+    ];
+    const resume = segments.map((x) => `${x.nom} ${x.n}`).join(", ");
+
     conteneur.innerHTML = `
-      <div class="stat-card"><span class="stat-valeur">${s.totalUtilisateurs}</span><span class="stat-label">Total</span></div>
-      <div class="stat-card stat-attente"><span class="stat-valeur">${s.enAttente}</span><span class="stat-label">En attente</span></div>
-      <div class="stat-card stat-approuve"><span class="stat-valeur">${s.approuves}</span><span class="stat-label">Approuvés</span></div>
-      <div class="stat-card stat-refuse"><span class="stat-valeur">${s.refuses}</span><span class="stat-label">Refusés</span></div>
-      <div class="stat-card stat-admin"><span class="stat-valeur">${s.admins}</span><span class="stat-label">Admins</span></div>
-    `;
+      ${s.enAttente > 0 ? `
+        <div class="alerte" role="status">
+          <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+          <span><strong>${s.enAttente}</strong> compte${s.enAttente > 1 ? "s" : ""} en attente d'approbation</span>
+          <button type="button" id="btn-voir-attente" class="btn-secondaire">Voir</button>
+        </div>` : ""}
+      <div class="kpi-grid">
+        <div class="kpi"><i class="bi bi-people" aria-hidden="true"></i><div><span class="kpi-valeur">${s.totalUtilisateurs}</span><span class="kpi-label">Utilisateurs</span></div></div>
+        <div class="kpi kpi-vu"><i class="bi bi-patch-check" aria-hidden="true"></i><div><span class="kpi-valeur">${s.approuves}</span><span class="kpi-label">Approuvés</span></div></div>
+        <div class="kpi kpi-avoir"><i class="bi bi-hourglass-split" aria-hidden="true"></i><div><span class="kpi-valeur">${s.enAttente}</span><span class="kpi-label">En attente</span></div></div>
+        <div class="kpi kpi-abandon"><i class="bi bi-slash-circle" aria-hidden="true"></i><div><span class="kpi-valeur">${s.refuses}</span><span class="kpi-label">Refusés</span></div></div>
+        <div class="kpi kpi-admin"><i class="bi bi-shield-check" aria-hidden="true"></i><div><span class="kpi-valeur">${s.admins}</span><span class="kpi-label">Administrateurs</span></div></div>
+      </div>
+      <section class="box">
+        <h3 class="box-titre"><i class="bi bi-pie-chart" aria-hidden="true"></i> Répartition des comptes</h3>
+        <div class="bar-stack" role="img" aria-label="${esc(resume)}">
+          ${segments.filter((x) => x.n > 0).map((x) => `<span style="width:${(x.n / total) * 100}%;background:${x.couleur}"></span>`).join("")}
+        </div>
+        <ul class="legende">
+          ${segments.map((x) => `<li><i style="background:${x.couleur}"></i>${x.nom}<strong>${x.n}</strong><span class="meta">${pct(x.n)} %</span></li>`).join("")}
+        </ul>
+      </section>`;
+
+    document.getElementById("btn-voir-attente")?.addEventListener("click", () => {
+      document.getElementById("select-statut-admin").value = "EN_ATTENTE";
+      chargerListeAdmin();
+    });
   } catch (err) {
-    conteneur.innerHTML = messageErreur(err.message);
+    conteneur.innerHTML = messageErreur(esc(err.message));
   }
 }
 
@@ -1477,31 +1513,31 @@ async function chargerListeAdmin() {
   }
 
   const libellesStatut = { EN_ATTENTE: "En attente", APPROUVE: "Approuvé", REFUSE: "Refusé" };
+  const nbAdminsActifs = utilisateurs.filter((x) => x.role === "ADMIN" && x.statut === "APPROUVE").length;
 
   conteneur.innerHTML = "";
   for (const u of utilisateurs) {
+    const dernierAdmin = u.role === "ADMIN" && nbAdminsActifs <= 1;
     const carte = creerElement(`
-      <div class="admin-carte">
-        <div class="admin-info">
-          <h3>${u.pseudo} <span class="badge-role-inline badge-${u.role.toLowerCase()}">${u.role}</span></h3>
-          <p class="meta">${u.email}</p>
-          <p class="meta">Statut : <strong class="statut-${u.statut.toLowerCase()}">${libellesStatut[u.statut] || u.statut}</strong></p>
-          <p class="meta">Inscrit le : ${u.dateInscription ? new Date(u.dateInscription).toLocaleDateString("fr-FR") : "—"}</p>
+      <article class="user-row">
+        <span class="user-avatar lg" aria-hidden="true">${esc((u.pseudo || "?").charAt(0))}</span>
+        <div class="user-main">
+          <h3>${esc(u.pseudo)} <span class="badge-role-inline badge-${esc(u.role.toLowerCase())}">${esc(u.role)}</span></h3>
+          <p class="meta">${esc(u.email)}</p>
         </div>
-        ${(() => {
-          const dernierAdmin = u.role === "ADMIN" && utilisateurs.filter(x => x.role === "ADMIN" && x.statut === "APPROUVE").length <= 1;
-          return `
-          <div class="admin-actions">
-            ${u.statut !== "APPROUVE" ? `<button class="btn-approuver" data-id="${u.id}" data-action="approuver">Approuver</button>` : ""}
-            ${u.statut !== "REFUSE" ? `<button class="btn-refuser" data-id="${u.id}" data-action="refuser" ${dernierAdmin ? "disabled" : ""}>Refuser</button>` : ""}
-            ${u.role !== "ADMIN" ? `<button class="btn-promouvoir" data-id="${u.id}" data-action="promouvoir">Promouvoir</button>` : ""}
-            ${u.role === "ADMIN" ? `<button class="btn-retrograder" data-id="${u.id}" data-action="retrograder" ${dernierAdmin ? "disabled" : ""}>Rétrograder</button>` : ""}
-            <button class="btn-motdepasse" data-id="${u.id}" data-action="motdepasse">Changer MDP</button>
-            <button class="btn-supprimer" data-id="${u.id}" data-action="supprimer" ${dernierAdmin ? "disabled" : ""}>Supprimer</button>
-          </div>
-          `;
-        })()}
-      </div>
+        <div class="user-meta">
+          <span class="pill pill-${esc(u.statut.toLowerCase())}">${esc(libellesStatut[u.statut] || u.statut)}</span>
+          <span class="meta">Inscrit le ${u.dateInscription ? new Date(u.dateInscription).toLocaleDateString("fr-FR") : "—"}</span>
+        </div>
+        <div class="admin-actions">
+          ${u.statut !== "APPROUVE" ? `<button type="button" class="btn-approuver" data-id="${u.id}" data-action="approuver"><i class="bi bi-check-lg" aria-hidden="true"></i> Approuver</button>` : ""}
+          ${u.statut !== "REFUSE" ? `<button type="button" class="btn-refuser" data-id="${u.id}" data-action="refuser" ${dernierAdmin ? "disabled" : ""}><i class="bi bi-x-lg" aria-hidden="true"></i> Refuser</button>` : ""}
+          ${u.role !== "ADMIN" ? `<button type="button" class="btn-promouvoir" data-id="${u.id}" data-action="promouvoir"><i class="bi bi-arrow-up-circle" aria-hidden="true"></i> Promouvoir</button>` : ""}
+          ${u.role === "ADMIN" ? `<button type="button" class="btn-retrograder" data-id="${u.id}" data-action="retrograder" ${dernierAdmin ? "disabled" : ""}><i class="bi bi-arrow-down-circle" aria-hidden="true"></i> Rétrograder</button>` : ""}
+          <button type="button" class="btn-motdepasse" data-id="${u.id}" data-action="motdepasse"><i class="bi bi-key" aria-hidden="true"></i> Mot de passe</button>
+          <button type="button" class="btn-supprimer" data-id="${u.id}" data-action="supprimer" ${dernierAdmin ? "disabled" : ""}><i class="bi bi-trash" aria-hidden="true"></i> Supprimer</button>
+        </div>
+      </article>
     `);
 
     carte.querySelectorAll("[data-action]").forEach((btn) => {
@@ -1588,6 +1624,23 @@ function formatDateRelative(iso) {
   return d.toLocaleDateString("fr-FR");
 }
 
+/** Builds a CSS conic-gradient donut background from {v, c} segments. */
+function degradeDonut(segments) {
+  const total = segments.reduce((t, x) => t + x.v, 0);
+  if (!total) return "var(--couleur-surface)";
+  let cumul = 0;
+  const parts = segments.filter((x) => x.v > 0).map((x) => {
+    const debut = (cumul / total) * 100;
+    cumul += x.v;
+    return `${x.c} ${debut}% ${(cumul / total) * 100}%`;
+  });
+  return `conic-gradient(${parts.join(", ")})`;
+}
+
+function boite(icone, titre, contenu, classe = "") {
+  return `<section class="box ${classe}"><h3 class="box-titre"><i class="bi bi-${icone}" aria-hidden="true"></i> ${titre}</h3>${contenu}</section>`;
+}
+
 async function chargerMesStats() {
   const conteneur = document.getElementById("stats-contenu");
   conteneur.innerHTML = messageChargement();
@@ -1596,114 +1649,77 @@ async function chargerMesStats() {
   try {
     s = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/stats`);
   } catch (err) {
-    conteneur.innerHTML = messageErreur(err.message);
+    conteneur.innerHTML = messageErreur(esc(err.message));
     return;
   }
 
+  const fmt = (n) => Number(n || 0).toLocaleString("fr-FR");
+  const completion = s.episodesTotal > 0 ? Math.round((s.episodesVus / s.episodesTotal) * 100) : 0;
+  const moyEpisodes = s.seriesTotal > 0 ? Math.round(s.episodesTotal / s.seriesTotal) : 0;
   const maxEpisodes = s.topGenres && s.topGenres.length > 0
-    ? Math.max(...s.topGenres.map(g => g.episodesVus))
+    ? Math.max(...s.topGenres.map((g) => g.episodesVus), 1)
     : 1;
 
+  const segments = [
+    { nom: "Terminées", v: s.seriesTerminees, c: "var(--c-vu)" },
+    { nom: "En cours", v: s.seriesEnCours, c: "var(--c-cours)" },
+    { nom: "À voir", v: s.seriesAVoir, c: "var(--c-avoir)" },
+    { nom: "Abandonnées", v: s.seriesAbandonnees, c: "var(--c-abandon)" },
+  ];
+  const totalSeg = segments.reduce((t, x) => t + x.v, 0);
+  const resumeDonut = segments.map((x) => `${x.nom} ${x.v}`).join(", ");
+
+  const donut = boite("pie-chart", "Ma collection", `
+    <div class="donut-zone">
+      <div class="donut" role="img" aria-label="${esc(resumeDonut)}" style="background:${degradeDonut(segments)}">
+        <div class="donut-centre"><strong>${fmt(s.seriesTotal)}</strong><span>séries</span></div>
+      </div>
+      <ul class="legende">
+        ${segments.map((x) => `<li><i style="background:${x.c}"></i>${x.nom}<strong>${x.v}</strong><span class="meta">${totalSeg ? Math.round((x.v / totalSeg) * 100) : 0} %</span></li>`).join("")}
+      </ul>
+    </div>`);
+
+  const progression = boite("speedometer2", "Progression globale", `
+    <div class="progress-big" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${completion}" aria-label="Épisodes vus">
+      <span style="width:${completion}%"></span>
+    </div>
+    <p class="progress-legende"><strong>${completion} %</strong> · ${fmt(s.episodesVus)} épisodes vus sur ${fmt(s.episodesTotal)}</p>
+    <div class="mini-stats">
+      <div><strong>${formatDuree(s.tempsRestantMinutes)}</strong><span>Temps restant</span></div>
+      <div><strong>${moyEpisodes}</strong><span>Épisodes par série</span></div>
+    </div>`);
+
+  const notes = boite("star", "Mes notes", s.seriesNotees === 0
+    ? messageVide("Aucune série notée pour l'instant.")
+    : `<div class="note-grande"><strong>${s.notePersonnelleMoyenne ?? "—"}</strong><span>/ 10</span></div>
+       <p class="meta">Moyenne sur ${s.seriesNotees} série${s.seriesNotees > 1 ? "s" : ""} notée${s.seriesNotees > 1 ? "s" : ""} · ${s.seriesNonNotees} sans note</p>`);
+
+  const genres = boite("emoji-smile", "Top genres", (!s.topGenres || s.topGenres.length === 0)
+    ? messageVide("Aucun épisode visionné pour l'instant.")
+    : `<div class="stats-genres">${s.topGenres.map((g) => `
+        <div class="genre-barre">
+          <span class="genre-nom">${esc(g.genre)}</span>
+          <div class="genre-barre-fond"><div class="genre-barre-remplissage" style="width:${(g.episodesVus / maxEpisodes) * 100}%"></div></div>
+          <span class="genre-valeur">${g.episodesVus} ép. · ${formatDuree(g.minutesVisionnees)}</span>
+        </div>`).join("")}</div>`);
+
+  const activite = boite("clock-history", "Activité récente", (!s.activiteRecente || s.activiteRecente.length === 0)
+    ? messageVide("Aucune activité pour l'instant.")
+    : `<ul class="stats-activite">${s.activiteRecente.map((a) => `
+        <li>
+          <span class="act-badge">S${a.saisonNumero}·E${a.episodeNumero}</span>
+          <div><strong>${esc(a.serieTitre)}</strong><span class="meta">${esc(a.episodeTitre || "Sans titre")}</span></div>
+          <span class="meta">${formatDateRelative(a.dateVisionnage)}</span>
+        </li>`).join("")}</ul>`, "pleine");
+
   conteneur.innerHTML = `
-    <div class="stats-section">
-      <h3 class="titre-section">📚 Ma collection</h3>
-      <div class="stats-grid">
-        <div class="stat-card stat-total">
-          <span class="stat-valeur">${s.seriesTotal}</span>
-          <span class="stat-label">Séries</span>
-        </div>
-        <div class="stat-card stat-approuve">
-          <span class="stat-valeur">${s.seriesTerminees}</span>
-          <span class="stat-label">Terminées</span>
-        </div>
-        <div class="stat-card stat-en-cours">
-          <span class="stat-valeur">${s.seriesEnCours}</span>
-          <span class="stat-label">En cours</span>
-        </div>
-        <div class="stat-card stat-attente">
-          <span class="stat-valeur">${s.seriesAVoir}</span>
-          <span class="stat-label">À voir</span>
-        </div>
-        <div class="stat-card stat-refuse">
-          <span class="stat-valeur">${s.seriesAbandonnees}</span>
-          <span class="stat-label">Abandonnées</span>
-        </div>
-      </div>
+    <div class="kpi-grid">
+      <div class="kpi"><i class="bi bi-collection-play" aria-hidden="true"></i><div><span class="kpi-valeur">${fmt(s.seriesTotal)}</span><span class="kpi-label">Séries</span></div></div>
+      <div class="kpi kpi-cours"><i class="bi bi-clock" aria-hidden="true"></i><div><span class="kpi-valeur">${formatDuree(s.tempsTotalVisionneMinutes)}</span><span class="kpi-label">Temps visionné</span></div></div>
+      <div class="kpi kpi-vu"><i class="bi bi-play-circle" aria-hidden="true"></i><div><span class="kpi-valeur">${fmt(s.episodesVus)}</span><span class="kpi-label">Épisodes vus</span></div></div>
+      <div class="kpi kpi-avoir"><i class="bi bi-check2-circle" aria-hidden="true"></i><div><span class="kpi-valeur">${completion} %</span><span class="kpi-label">Complétion</span></div></div>
     </div>
-
-    <div class="stats-section">
-      <h3 class="titre-section">⏱️ Temps de visionnage</h3>
-      <div class="stats-grid">
-        <div class="stat-card stat-big">
-          <span class="stat-valeur">${formatDuree(s.tempsTotalVisionneMinutes)}</span>
-          <span class="stat-label">Temps visionné</span>
-        </div>
-        <div class="stat-card stat-big">
-          <span class="stat-valeur">${formatDuree(s.tempsRestantMinutes)}</span>
-          <span class="stat-label">Temps restant</span>
-        </div>
-      </div>
-      <p class="stats-note">${s.episodesVus} épisodes vus sur ${s.episodesTotal} disponibles</p>
-    </div>
-
-    <div class="stats-section">
-      <h3 class="titre-section">⭐ Mes notes</h3>
-      ${s.seriesNotees === 0 ? messageVide("Aucune série notée pour l'instant.") : `
-        <div class="stats-grid">
-          <div class="stat-card stat-big">
-            <span class="stat-valeur">${s.notePersonnelleMoyenne ?? "—"} / 10</span>
-            <span class="stat-label">Note moyenne</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-valeur">${s.seriesNotees}</span>
-            <span class="stat-label">Séries notées</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-valeur">${s.seriesNonNotees}</span>
-            <span class="stat-label">Non notées</span>
-          </div>
-        </div>
-      `}
-    </div>
-
-    <div class="stats-section">
-      <h3 class="titre-section">🎭 Top genres</h3>
-      ${(!s.topGenres || s.topGenres.length === 0)
-        ? messageVide("Aucun épisode visionné pour l'instant.")
-        : `
-          <div class="stats-genres">
-            ${s.topGenres.map(g => `
-              <div class="genre-barre">
-                <span class="genre-nom">${g.genre}</span>
-                <div class="genre-barre-fond">
-                  <div class="genre-barre-remplissage" style="width:${(g.episodesVus / maxEpisodes) * 100}%"></div>
-                </div>
-                <span class="genre-valeur">${g.episodesVus} ép. · ${formatDuree(g.minutesVisionnees)}</span>
-              </div>
-            `).join("")}
-          </div>
-        `}
-    </div>
-
-    <div class="stats-section">
-      <h3 class="titre-section">📅 Activité récente</h3>
-      ${(!s.activiteRecente || s.activiteRecente.length === 0)
-        ? messageVide("Aucune activité pour l'instant.")
-        : `
-          <ul class="stats-activite">
-            ${s.activiteRecente.map(a => `
-              <li>
-                <div>
-                  <strong>${a.serieTitre}</strong>
-                  <span class="meta">S${a.saisonNumero}E${a.episodeNumero} — ${a.episodeTitre || "Sans titre"}</span>
-                </div>
-                <span class="meta">${formatDateRelative(a.dateVisionnage)}</span>
-              </li>
-            `).join("")}
-          </ul>
-        `}
-    </div>
-  `;
+    <div class="stats-layout">${donut}${progression}${notes}${genres}${activite}</div>`;
 }
 
 // --- Startup ---
