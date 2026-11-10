@@ -113,6 +113,84 @@ function esc(valeur) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+/** Non-blocking notification (replaces alert()). type: "succes" | "erreur" | "info". */
+function afficherToast(message, type = "info", duree = 4500) {
+  const zone = document.getElementById("toasts");
+  if (!zone) return;
+  const icones = { succes: "check-circle-fill", erreur: "exclamation-triangle-fill", info: "info-circle-fill" };
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute("role", type === "erreur" ? "alert" : "status");
+  toast.innerHTML = `<i class="bi bi-${icones[type] || icones.info}" aria-hidden="true"></i><span></span>`;
+  toast.querySelector("span").textContent = message;
+  zone.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add("sortie");
+    setTimeout(() => toast.remove(), 220);
+  }, duree);
+}
+
+// --- Import button (shared by poster cards and the detail modal) ---
+
+const importsEnCours = new Set();
+
+function htmlBoutonImport(tmdbId, libelle = "Importer", id = "") {
+  return `<button type="button" class="btn-importer"${id ? ` id="${id}"` : ""} data-tmdb-id="${esc(tmdbId)}" data-etat="idle" data-libelle="${esc(libelle)}"><i class="bi bi-plus-lg" aria-hidden="true"></i><span class="btn-txt">${esc(libelle)}</span></button>`;
+}
+
+/** Sets the visual + ARIA state of an import button: idle | loading | ok | erreur. */
+function majBoutonImport(btn, etat) {
+  const libelle = btn.dataset.libelle || "Importer";
+  const etats = {
+    idle: ['<i class="bi bi-plus-lg" aria-hidden="true"></i>', libelle],
+    loading: ['<span class="spinner" aria-hidden="true"></span>', "Import…"],
+    ok: ['<i class="bi bi-check2" aria-hidden="true"></i>', "Importé"],
+    erreur: ['<i class="bi bi-arrow-repeat" aria-hidden="true"></i>', "Réessayer"],
+  };
+  const [icone, texte] = etats[etat];
+  btn.dataset.etat = etat;
+  btn.innerHTML = `${icone}<span class="btn-txt">${esc(texte)}</span>`;
+  // aria-disabled (not disabled) so keyboard focus is not lost during the request
+  btn.setAttribute("aria-disabled", String(etat === "loading" || etat === "ok"));
+  btn.setAttribute("aria-busy", String(etat === "loading"));
+}
+
+function synchroniserImport(tmdbId, etat) {
+  document.querySelectorAll(`.btn-importer[data-tmdb-id="${CSS.escape(String(tmdbId))}"]`)
+    .forEach((b) => majBoutonImport(b, etat));
+}
+
+function serieDejaImportee(tmdbId) {
+  return seriesEnMemoire.some((x) => x.serie && x.serie.tmdbId != null && String(x.serie.tmdbId) === String(tmdbId));
+}
+
+async function importerSerie(tmdbId, titre) {
+  const cle = String(tmdbId);
+  if (importsEnCours.has(cle)) return; // prevents repeated submissions
+  importsEnCours.add(cle);
+  synchroniserImport(cle, "loading");
+  try {
+    await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/tmdb/importer/${tmdbId}`, { method: "POST" });
+    synchroniserImport(cle, "ok");
+    afficherToast(titre ? `« ${titre} » a été ajoutée à votre bibliothèque.` : "Série ajoutée à votre bibliothèque.", "succes");
+    chargerMesSeries();
+  } catch (err) {
+    synchroniserImport(cle, "erreur");
+    afficherToast(err.message, "erreur");
+  } finally {
+    importsEnCours.delete(cle);
+  }
+}
+
+function brancherBoutonImport(btn, titre) {
+  if (serieDejaImportee(btn.dataset.tmdbId)) majBoutonImport(btn, "ok");
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (btn.dataset.etat === "loading" || btn.dataset.etat === "ok") return;
+    importerSerie(btn.dataset.tmdbId, titre);
+  });
+}
+
 function creerElement(html) {
   const conteneur = document.createElement("div");
   conteneur.innerHTML = html.trim();
@@ -131,7 +209,7 @@ function messageVide(texte) {
 /** Placeholder cards shown while TMDB results load. */
 function squelettes(n = 10) {
   return Array.from({ length: n }, () =>
-    '<div class="serie-card skeleton" aria-hidden="true"><div class="sk-img"></div><div class="contenu"><div class="sk-ligne"></div><div class="sk-ligne court"></div></div></div>'
+    '<div class="serie-card poster skeleton" aria-hidden="true"><div class="sk-img"></div></div>'
   ).join("") + '<span class="sr-only" role="status">Chargement des résultats</span>';
 }
 function messageChargement(texte = "Chargement...") {
@@ -437,25 +515,23 @@ function rendreMesSeries() {
     const statut = statutEffectif(serie, progression);
     const statutForce = !!serie.statutVisionnage;
     const carte = creerElement(`
-      <div class="serie-card" data-id="${serie.id}">
-        <img src="${serie.imageUrl || IMAGE_PLACEHOLDER}" alt="Affiche de ${serie.titre}">
+      <div class="serie-card carte-gestion" data-id="${serie.id}">
+        <div class="poster-zone">
+          <img src="${esc(serie.imageUrl || IMAGE_PLACEHOLDER)}" alt="Affiche de ${esc(serie.titre)}" loading="lazy">
+          ${serie.notePersonnelle ? `<span class="badge-note" title="Ma note"><i class="bi bi-star-fill" aria-hidden="true"></i> ${esc(serie.notePersonnelle)}/10</span>` : ""}
+        </div>
         <div class="contenu">
-          <h3>${serie.titre}</h3>
-          <span class="meta">${serie.genre || ''} ${serie.anneeSortie ? '· ' + serie.anneeSortie : ''}</span>
-                    <span class="badge-statut statut-${statut.toLowerCase()}" title="${statutForce ? 'Statut choisi manuellement' : 'Statut calculé automatiquement'}">
+          <h3>${esc(serie.titre)}</h3>
+          <span class="meta">${esc(serie.genre || "")} ${serie.anneeSortie ? "· " + esc(serie.anneeSortie) : ""}</span>
+          <span class="badge-statut statut-${statut.toLowerCase()}" title="${statutForce ? "Statut choisi manuellement" : "Statut calculé automatiquement"}">
             ${LIBELLES_STATUT[statut] || statut}${statutForce ? "" : " (auto)"}
           </span>
-          ${serie.notePersonnelle ? `
-            <span class="note-perso" title="Ma note">
-              ${afficherEtoiles(serie.notePersonnelle)} <strong>${serie.notePersonnelle}/10</strong>
-            </span>
-          ` : ""}
           ${progression ? `
-            <div class="barre-progression">
+            <div class="barre-progression" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progression.pourcentage}" aria-label="Progression">
               <div class="remplissage" style="width:${progression.pourcentage}%"></div>
             </div>
             <span class="meta">${progression.episodesVus}/${progression.episodesTotal} épisodes</span>
-          ` : ''}
+          ` : ""}
           <div class="statut-selecteur">
             <label for="statut-${serie.id}" class="sr-only">Changer le statut</label>
             <select class="select-statut-carte" data-id="${serie.id}" id="statut-${serie.id}">
@@ -467,8 +543,8 @@ function rendreMesSeries() {
             </select>
           </div>
           <div class="actions-carte">
-            <button class="btn-editer" data-id="${serie.id}" data-action="editer">Éditer</button>
-            <button class="btn-supprimer" data-id="${serie.id}" data-action="supprimer">Supprimer</button>
+            <button type="button" class="btn-editer" data-id="${serie.id}" data-action="editer"><i class="bi bi-pencil" aria-hidden="true"></i> Éditer</button>
+            <button type="button" class="btn-supprimer" data-id="${serie.id}" data-action="supprimer"><i class="bi bi-trash" aria-hidden="true"></i> Supprimer</button>
           </div>
         </div>
       </div>
@@ -485,7 +561,7 @@ function rendreMesSeries() {
         );
         chargerMesSeries();
       } catch (err) {
-        alert(err.message);
+        afficherToast(err.message, "erreur");
         chargerMesSeries();
       }
     });
@@ -496,7 +572,7 @@ function rendreMesSeries() {
       try {
         await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}`, { method: "DELETE" });
         chargerMesSeries();
-      } catch (err) { alert(err.message); }
+      } catch (err) { afficherToast(err.message, "erreur"); }
     });
 
     carte.querySelector('[data-action="editer"]').addEventListener("click", (e) => {
@@ -530,7 +606,7 @@ document.getElementById("form-ajout-serie").addEventListener("submit", async (e)
     });
     e.target.reset();
     chargerMesSeries();
-  } catch (err) { alert(err.message); }
+  } catch (err) { afficherToast(err.message, "erreur"); }
 });
 
 // --- Edition modal ---
@@ -538,13 +614,13 @@ document.getElementById("form-ajout-serie").addEventListener("submit", async (e)
 function ouvrirEditionSerie(serie) {
   const contenu = document.getElementById("detail-contenu");
   contenu.innerHTML = `
-    <h2 id="titre-detail">Éditer « ${serie.titre} »</h2>
+    <h2 id="titre-detail">Éditer « ${esc(serie.titre)} »</h2>
     <form id="form-edition-serie" class="form-inline">
       <label for="edit-titre" class="sr-only">Titre</label>
-      <input id="edit-titre" type="text" value="${serie.titre || ''}" required>
+      <input id="edit-titre" type="text" value="${esc(serie.titre || '')}" required>
 
       <label for="edit-genre" class="sr-only">Genre</label>
-      <input id="edit-genre" type="text" value="${serie.genre || ''}" placeholder="Genre">
+      <input id="edit-genre" type="text" value="${esc(serie.genre || '')}" placeholder="Genre">
 
       <label for="edit-annee" class="sr-only">Année</label>
       <input id="edit-annee" type="number" value="${serie.anneeSortie || ''}" placeholder="Année" min="1900" max="2100">
@@ -553,7 +629,7 @@ function ouvrirEditionSerie(serie) {
       <input id="edit-note" type="number" value="${serie.note ?? ''}" placeholder="Note" min="0" max="10" step="0.1">
 
       <label for="edit-image" class="sr-only">URL de l'image</label>
-      <input id="edit-image" type="url" value="${serie.imageUrl || ''}" placeholder="URL de l'affiche">
+      <input id="edit-image" type="url" value="${esc(serie.imageUrl || '')}" placeholder="URL de l'affiche">
 
             <label for="edit-statut" class="sr-only">Statut de visionnage</label>
       <select id="edit-statut">
@@ -598,7 +674,7 @@ function ouvrirEditionSerie(serie) {
       });
       fermerModale();
       chargerMesSeries();
-    } catch (err) { alert(err.message); }
+    } catch (err) { afficherToast(err.message, "erreur"); }
   });
 }
 
@@ -742,10 +818,10 @@ async function chargerFournisseurs(serie, tmdbId) {
     <div class="fournisseurs-liste">
       ${fournisseurs.map((f) => `
         <a class="fournisseur" href="${f.lien}" target="_blank" rel="noopener noreferrer"
-           title="${f.nom} — ${libelles[f.type] || f.type}">
+           title="${esc(f.nom)} — ${libelles[f.type] || f.type}">
           ${f.logoUrl
-            ? `<img src="${f.logoUrl}" alt="${f.nom}">`
-            : `<span class="fournisseur-nom">${f.nom}</span>`}
+            ? `<img src="${esc(f.logoUrl)}" alt="${esc(f.nom)}">`
+            : `<span class="fournisseur-nom">${esc(f.nom)}</span>`}
           <span class="fournisseur-type">${libelles[f.type] || f.type}</span>
         </a>
       `).join("")}
@@ -796,16 +872,16 @@ async function chargerVideos(serie, tmdbId) {
   conteneur.innerHTML = `
     <div class="video-principale">
       <button type="button" class="video-apercu" data-video-key="${principale.cle}" data-video-embed="${principale.embedUrl}">
-        <img src="https://img.youtube.com/vi/${principale.cle}/hqdefault.jpg" alt="Aperçu : ${principale.nom}">
+        <img src="https://img.youtube.com/vi/${principale.cle}/hqdefault.jpg" alt="Aperçu : ${esc(principale.nom)}">
         <span class="play-overlay" aria-hidden="true">▶</span>
-        <span class="video-titre">${principale.nom}</span>
+        <span class="video-titre">${esc(principale.nom)}</span>
       </button>
     </div>
     ${autres.length > 0 ? `
       <div class="videos-alternatives">
         <span class="meta">Autres vidéos :</span>
         ${autres.map(v => `
-          <button type="button" class="video-miniature" data-video-key="${v.cle}" data-video-embed="${v.embedUrl}" title="${v.nom}">
+          <button type="button" class="video-miniature" data-video-key="${v.cle}" data-video-embed="${v.embedUrl}" title="${esc(v.nom)}">
             ${v.type}
           </button>
         `).join("")}
@@ -922,7 +998,7 @@ async function chargerAvis(serie) {
         rendre();
         chargerMesSeries();
       } catch (err) {
-        alert(err.message);
+        afficherToast(err.message, "erreur");
       }
     });
   }
@@ -932,22 +1008,22 @@ async function chargerAvis(serie) {
 
 async function ouvrirDetailSerie(serie) {
   const contenu = document.getElementById("detail-contenu");
-  contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageChargement();
+  contenu.innerHTML = `<h2 id="titre-detail">${esc(serie.titre)}</h2>` + messageChargement();
   ouvrirModale();
 
   let saisons;
   try {
     saisons = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/series/${serie.id}/saisons`);
   } catch (err) {
-    contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageErreur(err.message);
+    contenu.innerHTML = `<h2 id="titre-detail">${esc(serie.titre)}</h2>` + messageErreur(err.message);
     return;
   }
 
   if (!Array.isArray(saisons) || saisons.length === 0) {
-    contenu.innerHTML = `<h2 id="titre-detail">${serie.titre}</h2>` + messageVide("Aucune saison enregistrée pour cette série.");
+    contenu.innerHTML = `<h2 id="titre-detail">${esc(serie.titre)}</h2>` + messageVide("Aucune saison enregistrée pour cette série.");
     return;
   }
-    let html = `<h2 id="titre-detail">${serie.titre}</h2>
+    let html = `<h2 id="titre-detail">${esc(serie.titre)}</h2>
     <section class="bloc-avis">
       <h3>Mon avis</h3>
       <div id="avis-detail" aria-live="polite"></div>
@@ -974,7 +1050,7 @@ async function ouvrirDetailSerie(serie) {
     for (const ep of episodes) {
       html += `
         <div class="episode-ligne" data-episode-id="${ep.id}">
-          <span>Épisode ${ep.numero} — ${ep.titre || ''}</span>
+          <span>Épisode ${ep.numero} — ${esc(ep.titre || '')}</span>
           <input type="checkbox" class="check-vu" data-episode-id="${ep.id}" id="ep-${ep.id}">
           <label for="ep-${ep.id}" class="sr-only">Marquer l'épisode ${ep.numero} comme vu</label>
         </div>
@@ -1000,7 +1076,7 @@ async function ouvrirDetailSerie(serie) {
           ligne.classList.remove("vu");
         }
       } catch (err) {
-        alert(err.message);
+        afficherToast(err.message, "erreur");
         e.target.checked = !e.target.checked;
       }
     });
@@ -1043,40 +1119,30 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
 
   conteneur.innerHTML = "";
   for (const serie of series) {
-    const boutonImport = avecImport
-      ? `<button class="btn-importer" data-tmdb-id="${serie.tmdbId}">Importer</button>`
-      : "";
+    const annee = serie.dateDiffusion ? String(serie.dateDiffusion).slice(0, 4) : "Date inconnue";
+    const note = typeof serie.note === "number" && serie.note > 0 ? serie.note.toFixed(1) : null;
     const carte = creerElement(`
-      <div class="serie-card">
-        <img src="${serie.imageUrl || IMAGE_PLACEHOLDER}" alt="Affiche de ${serie.titre}">
-        <div class="contenu">
-          <h3>${serie.titre}</h3>
-          <span class="meta">${serie.dateDiffusion || 'Date inconnue'} · ⭐ ${serie.note?.toFixed(1) || '?'}</span>
-          ${boutonImport}
+      <article class="serie-card poster" tabindex="0" aria-label="${esc(serie.titre)}">
+        <img src="${esc(serie.imageUrl || IMAGE_PLACEHOLDER)}" alt="Affiche de ${esc(serie.titre)}" loading="lazy">
+        ${note ? `<span class="badge-note" title="Note TMDB"><i class="bi bi-star-fill" aria-hidden="true"></i> ${note}</span>` : ""}
+        <div class="poster-overlay">
+          <h3>${esc(serie.titre)}</h3>
+          <span class="poster-meta">${esc(annee)}</span>
+          ${avecImport ? htmlBoutonImport(serie.tmdbId) : ""}
         </div>
-      </div>
+      </article>
     `);
     attacherPlaceholder(carte.querySelector("img"));
 
-    if (avecImport) {
-      carte.querySelector(".btn-importer").addEventListener("click", async (e) => {
-        e.stopPropagation();
-        const btn = e.target;
-        btn.disabled = true;
-        btn.textContent = "Import...";
-        try {
-          await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/tmdb/importer/${serie.tmdbId}`, { method: "POST" });
-          btn.textContent = "Importé ✓";
-        } catch (err) {
-          alert(err.message);
-          btn.disabled = false;
-          btn.textContent = "Importer";
-        }
-      });
-    }
+    if (avecImport) brancherBoutonImport(carte.querySelector(".btn-importer"), serie.titre);
 
     carte.addEventListener("click", (e) => {
       if (e.target.closest(".btn-importer")) return;
+      ouvrirDetailTmdb(serie);
+    });
+    carte.addEventListener("keydown", (e) => {
+      if (e.target !== carte || (e.key !== "Enter" && e.key !== " ")) return;
+      e.preventDefault();
       ouvrirDetailTmdb(serie);
     });
 
@@ -1086,7 +1152,7 @@ function afficherResultatsTmdb(series, conteneurId = "resultats-tmdb", options =
 
 async function ouvrirDetailTmdb(serieTmdb) {
   const contenu = document.getElementById("detail-contenu");
-  contenu.innerHTML = `<h2 id="titre-detail">${serieTmdb.titre}</h2>` + messageChargement();
+  contenu.innerHTML = `<h2 id="titre-detail">${esc(serieTmdb.titre)}</h2>` + messageChargement();
   ouvrirModale();
 
   // 1. Charger les détails et le casting EN PARALLÈLE
@@ -1097,7 +1163,7 @@ async function ouvrirDetailTmdb(serieTmdb) {
       appelApi(`${API}/tmdb/serie/${serieTmdb.tmdbId}/credits`),
     ]);
   } catch (err) {
-    contenu.innerHTML = `<h2 id="titre-detail">${serieTmdb.titre}</h2>` + messageErreur(err.message);
+    contenu.innerHTML = `<h2 id="titre-detail">${esc(serieTmdb.titre)}</h2>` + messageErreur(err.message);
     return;
   }
 
@@ -1113,10 +1179,10 @@ async function ouvrirDetailTmdb(serieTmdb) {
   const casting = Array.isArray(credits) ? credits.slice(0, 8) : [];
 
   contenu.innerHTML = `
-    <h2 id="titre-detail">${detail.titre}</h2>
+    <h2 id="titre-detail">${esc(detail.titre)}</h2>
 
     <div class="tmdb-fiche">
-      <img src="${imageUrl}" alt="Affiche de ${detail.titre}" class="tmdb-fiche-affiche">
+      <img src="${imageUrl}" alt="Affiche de ${esc(detail.titre)}" class="tmdb-fiche-affiche">
       <div class="tmdb-fiche-meta">
         <p class="tmdb-fiche-ligne1">
           ${dateDebut ? `<strong>Première diffusion : ${dateDebut}</strong>` : ""}
@@ -1124,11 +1190,9 @@ async function ouvrirDetailTmdb(serieTmdb) {
         </p>
         ${ligneSaisons ? `<p class="tmdb-fiche-saisons">📺 ${ligneSaisons}</p>` : ""}
         ${ligneStatut ? `<p class="tmdb-fiche-statut">${ligneStatut}</p>` : ""}
-        <p class="tmdb-fiche-desc">${description}</p>
+        <p class="tmdb-fiche-desc">${esc(description)}</p>
         <div class="tmdb-fiche-actions">
-          <button class="btn-importer" id="btn-importer-modal" data-tmdb-id="${detail.tmdbId}">
-            Importer dans ma liste
-          </button>
+          ${htmlBoutonImport(detail.tmdbId, "Importer dans ma liste", "btn-importer-modal")}
           <a class="btn-tmdb-externe"
              href="https://www.themoviedb.org/tv/${detail.tmdbId}"
              target="_blank" rel="noopener">
@@ -1144,8 +1208,8 @@ async function ouvrirDetailTmdb(serieTmdb) {
         <div class="casting-liste">
           ${casting.map((m) => `
             <div class="casting-item">
-              <img src="${m.photoUrl || IMAGE_PLACEHOLDER}" alt="${m.nom}">
-              <div class="casting-nom">${m.nom}</div>
+              <img src="${esc(m.photoUrl || IMAGE_PLACEHOLDER)}" alt="${esc(m.nom)}">
+              <div class="casting-nom">${esc(m.nom)}</div>
               <div class="casting-role">${m.personnage || ""}</div>
             </div>
           `).join("")}
@@ -1156,22 +1220,7 @@ async function ouvrirDetailTmdb(serieTmdb) {
 
   contenu.querySelectorAll("img").forEach(attacherPlaceholder);
 
-  document.getElementById("btn-importer-modal").addEventListener("click", async (e) => {
-    const btn = e.target;
-    btn.disabled = true;
-    btn.textContent = "Import...";
-    try {
-      await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/tmdb/importer/${detail.tmdbId}`, {
-        method: "POST",
-      });
-      btn.textContent = "Importé ✓";
-      chargerMesSeries();
-    } catch (err) {
-      alert(err.message);
-      btn.disabled = false;
-      btn.textContent = "Importer dans ma liste";
-    }
-  });
+  brancherBoutonImport(document.getElementById("btn-importer-modal"), detail.titre);
 }
 
 function construireUrlTmdb(requete, page) {
@@ -1396,8 +1445,8 @@ function rendreActeurs() {
   for (const acteur of acteursEnMemoire) {
     const carte = creerElement(`
       <div class="serie-card acteur-card" data-acteur-id="${acteur.id}">
-        <img src="${acteur.photoUrl || IMAGE_PLACEHOLDER}" alt="Photo de ${acteur.nom}">
-        <div class="contenu"><h3>${acteur.nom}</h3></div>
+        <img src="${esc(acteur.photoUrl || IMAGE_PLACEHOLDER)}" alt="Photo de ${esc(acteur.nom)}">
+        <div class="contenu"><h3>${esc(acteur.nom)}</h3></div>
       </div>
     `);
     attacherPlaceholder(carte.querySelector("img"));
@@ -1408,7 +1457,7 @@ function rendreActeurs() {
 
 async function afficherFilmographie(acteur) {
   const conteneur = document.getElementById("resultats-acteurs");
-  conteneur.innerHTML = messageChargement(`Chargement de la filmographie de ${acteur.nom}...`);
+  conteneur.innerHTML = messageChargement(`Chargement de la filmographie de ${esc(acteur.nom)}...`);
 
   let series;
   try {
@@ -1421,7 +1470,7 @@ async function afficherFilmographie(acteur) {
   conteneur.classList.remove("grid");
   conteneur.innerHTML = `
     <button type="button" class="btn-retour" id="btn-retour-acteurs">← Retour aux acteurs</button>
-    <h3 class="titre-section">Séries avec ${acteur.nom}</h3>
+    <h3 class="titre-section">Séries avec ${esc(acteur.nom)}</h3>
     <div class="grid" id="resultats-filmographie"></div>
   `;
   document.getElementById("btn-retour-acteurs").addEventListener("click", () => {
@@ -1572,21 +1621,21 @@ async function actionAdmin(action, u) {
       case "motdepasse": {
         const nouveau = prompt(`Nouveau mot de passe pour ${u.pseudo} (min. 8 caractères) :`);
         if (!nouveau || nouveau.length < 8) {
-          if (nouveau) alert("Le mot de passe doit faire au moins 8 caractères.");
+          if (nouveau) afficherToast("Le mot de passe doit faire au moins 8 caractères.", "erreur");
           return;
         }
         await appelApi(`${API}/admin/utilisateurs/${u.id}/mot-de-passe`, {
           method: "PATCH",
           body: JSON.stringify({ nouveauMotDePasse: nouveau }),
         });
-        alert(`Mot de passe de ${u.pseudo} changé avec succès.`);
+        afficherToast(`Mot de passe de ${u.pseudo} changé avec succès.`, "succes");
         break;
       }
     }
     chargerListeAdmin();
     chargerStatsAdmin();
   } catch (err) {
-    alert(err.message);
+    afficherToast(err.message, "erreur");
   }
 }
 
