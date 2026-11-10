@@ -1,5 +1,6 @@
 package com.monprojet.series.repository;
 
+import com.monprojet.series.entity.RoleUtilisateur;
 import com.monprojet.series.entity.StatutUtilisateur;
 import com.monprojet.series.entity.Utilisateur;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,10 @@ public interface UtilisateurRepository extends JpaRepository<Utilisateur, Long> 
     Optional<Utilisateur> findByPseudo(String pseudo);
 
     boolean existsByEmail(String email);
+
+    boolean existsByPseudo(String pseudo);
+
+    boolean existsByRole(RoleUtilisateur role);
 
     List<Utilisateur> findByStatutOrderByDateInscriptionAsc(StatutUtilisateur statut);
 
