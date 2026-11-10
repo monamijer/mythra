@@ -38,4 +38,4 @@ build/
 
 # Local configuration and secrets — never commit these
 .env
-application-local.properties
+application-local.properties04-configuration-et-secrets.patch 05-administrateur-initial.patch 06-authentification-et-erreurs.patch 07-nettoyage.patch 08-documentation-et-demonstration.patch 09-routes-tmdb-protegees.patch
