@@ -1,0 +1,52 @@
+{
+  "id": "series-tv-env",
+  "name": "Series TV (local)",
+  "_postman_variable_scope": "environment",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "enabled": true
+    },
+    {
+      "key": "tokenAdmin",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "tokenAlice",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "adminId",
+      "value": "1",
+      "enabled": true
+    },
+    {
+      "key": "aliceId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "serieId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "saisonId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "episodeId",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "tmdbId",
+      "value": "1396",
+      "enabled": true
+    }
+  ]
+}

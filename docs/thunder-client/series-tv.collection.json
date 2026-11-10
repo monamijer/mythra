@@ -1,0 +1,1233 @@
+{
+  "info": {
+    "name": "Series TV API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Démonstration dans l'ordre des dossiers. Après chaque connexion, copiez le token dans tokenAdmin ou tokenAlice ; après chaque création, copiez l'id dans la variable correspondante (aliceId, serieId, saisonId, episodeId)."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "tokenAdmin",
+      "value": ""
+    },
+    {
+      "key": "tokenAlice",
+      "value": ""
+    },
+    {
+      "key": "adminId",
+      "value": "1"
+    },
+    {
+      "key": "aliceId",
+      "value": ""
+    },
+    {
+      "key": "serieId",
+      "value": ""
+    },
+    {
+      "key": "saisonId",
+      "value": ""
+    },
+    {
+      "key": "episodeId",
+      "value": ""
+    },
+    {
+      "key": "tmdbId",
+      "value": "1396"
+    }
+  ],
+  "item": [
+    {
+      "name": "1 - Authentification",
+      "item": [
+        {
+          "name": "Inscription (alice)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/inscription",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "inscription"
+              ]
+            },
+            "description": "Résultat attendu : 201, compte EN_ATTENTE, pas de token. Notez l'id renvoyé dans la variable aliceId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pseudo\": \"alice\",\n  \"email\": \"alice@example.com\",\n  \"motDePasse\": \"motdepasse123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Inscription invalide",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/inscription",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "inscription"
+              ]
+            },
+            "description": "Résultat attendu : 400 avec le détail des champs invalides",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pseudo\": \"\",\n  \"email\": \"pas-un-email\",\n  \"motDePasse\": \"123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Connexion d'alice avant approbation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/connexion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "connexion"
+              ]
+            },
+            "description": "Résultat attendu : 403, message : compte en attente d'approbation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"motDePasse\": \"motdepasse123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Connexion avec un mauvais mot de passe",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/connexion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "connexion"
+              ]
+            },
+            "description": "Résultat attendu : 401, email ou mot de passe incorrect",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"motDePasse\": \"faux-mot-de-passe\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Connexion de l'administrateur",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/connexion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "connexion"
+              ]
+            },
+            "description": "Résultat attendu : 200 avec un token. Copiez-le dans la variable tokenAdmin.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@seriestv.local\",\n  \"motDePasse\": \"Admin1234!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 - Administration",
+      "item": [
+        {
+          "name": "Lister les utilisateurs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Lister les comptes en attente",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs?statut=EN_ATTENTE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs"
+              ],
+              "query": [
+                {
+                  "key": "statut",
+                  "value": "EN_ATTENTE"
+                }
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Statistiques des comptes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs/statistiques",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs",
+                "statistiques"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Approuver alice",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs/{{aliceId}}/approuver",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs",
+                "{{aliceId}}",
+                "approuver"
+              ]
+            },
+            "description": "Résultat attendu : 200, statut APPROUVE"
+          }
+        },
+        {
+          "name": "Connexion d'alice après approbation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/connexion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "connexion"
+              ]
+            },
+            "description": "Résultat attendu : 200 avec un token. Copiez-le dans la variable tokenAlice.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@example.com\",\n  \"motDePasse\": \"motdepasse123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 - CRUD des séries (alice)",
+      "item": [
+        {
+          "name": "Créer une série",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 201. Copiez l'id dans la variable serieId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titre\": \"Breaking Bad\",\n  \"genre\": \"Drame\",\n  \"description\": \"Un professeur de chimie devient fabricant de méthamphétamine.\",\n  \"anneeSortie\": 2008,\n  \"note\": 9.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Lister mes séries",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Détail d'une série",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Modifier une série",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}"
+              ]
+            },
+            "description": "Résultat attendu : 200",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titre\": \"Breaking Bad\",\n  \"genre\": \"Thriller\",\n  \"description\": \"Description mise à jour.\",\n  \"anneeSortie\": 2008,\n  \"note\": 9.6\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Changer le statut de visionnage",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}/statut?statut=EN_COURS",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}",
+                "statut"
+              ],
+              "query": [
+                {
+                  "key": "statut",
+                  "value": "EN_COURS"
+                }
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Noter et critiquer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}/avis",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}",
+                "avis"
+              ]
+            },
+            "description": "Résultat attendu : 200",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notePersonnelle\": 9,\n  \"critique\": \"Une écriture magistrale.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Titre manquant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 400, le titre est obligatoire",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"genre\": \"Comédie\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Série inexistante",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "999999"
+              ]
+            },
+            "description": "Résultat attendu : 404"
+          }
+        },
+        {
+          "name": "Statut invalide",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}/statut?statut=XYZ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}",
+                "statut"
+              ],
+              "query": [
+                {
+                  "key": "statut",
+                  "value": "XYZ"
+                }
+              ]
+            },
+            "description": "Résultat attendu : 400"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4 - Saisons, épisodes et progression (alice)",
+      "item": [
+        {
+          "name": "Créer une saison",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}/saisons",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}",
+                "saisons"
+              ]
+            },
+            "description": "Résultat attendu : 201. Copiez l'id dans la variable saisonId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": 1,\n  \"nbEpisodes\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Créer l'épisode 1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/saisons/{{saisonId}}/episodes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "saisons",
+                "{{saisonId}}",
+                "episodes"
+              ]
+            },
+            "description": "Résultat attendu : 201. Copiez l'id dans la variable episodeId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": 1,\n  \"titre\": \"Pilot\",\n  \"dureeMinutes\": 58\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Créer l'épisode 2",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/saisons/{{saisonId}}/episodes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "saisons",
+                "{{saisonId}}",
+                "episodes"
+              ]
+            },
+            "description": "Résultat attendu : 201",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"numero\": 2,\n  \"titre\": \"Cat's in the Bag\",\n  \"dureeMinutes\": 48\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Lister les épisodes d'une saison",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/saisons/{{saisonId}}/episodes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "saisons",
+                "{{saisonId}}",
+                "episodes"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Marquer l'épisode 1 comme vu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/visionnages/{{episodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "visionnages",
+                "{{episodeId}}"
+              ]
+            },
+            "description": "Résultat attendu : 201"
+          }
+        },
+        {
+          "name": "Marquer le même épisode une seconde fois",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/visionnages/{{episodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "visionnages",
+                "{{episodeId}}"
+              ]
+            },
+            "description": "Résultat attendu : 409, épisode déjà vu"
+          }
+        },
+        {
+          "name": "Progression sur la série",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/progression/{{serieId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "progression",
+                "{{serieId}}"
+              ]
+            },
+            "description": "Résultat attendu : 200, 1 épisode vu sur 2 (50 %)"
+          }
+        },
+        {
+          "name": "Statistiques personnelles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "stats"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5 - Enrichissement TMDB",
+      "item": [
+        {
+          "name": "Recherche par titre",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tmdb/recherche?titre=Breaking%20Bad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tmdb",
+                "recherche"
+              ],
+              "query": [
+                {
+                  "key": "titre",
+                  "value": "Breaking Bad"
+                }
+              ]
+            },
+            "description": "Résultat attendu : 200 (clé TMDB requise)"
+          }
+        },
+        {
+          "name": "Séries populaires",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tmdb/populaires",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tmdb",
+                "populaires"
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Recherche d'un acteur",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tmdb/recherche-acteur?nom=Cranston",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "tmdb",
+                "recherche-acteur"
+              ],
+              "query": [
+                {
+                  "key": "nom",
+                  "value": "Cranston"
+                }
+              ]
+            },
+            "description": "Résultat attendu : 200"
+          }
+        },
+        {
+          "name": "Importer une série TMDB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/tmdb/importer/{{tmdbId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "tmdb",
+                "importer",
+                "{{tmdbId}}"
+              ]
+            },
+            "description": "Résultat attendu : 201, série importée avec ses saisons et ses épisodes"
+          }
+        },
+        {
+          "name": "Importer la même série une seconde fois",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/tmdb/importer/{{tmdbId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "tmdb",
+                "importer",
+                "{{tmdbId}}"
+              ]
+            },
+            "description": "Résultat attendu : 409, série déjà importée"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6 - Contrôle des accès",
+      "item": [
+        {
+          "name": "Sans token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 403"
+          }
+        },
+        {
+          "name": "Alice lit la liste de l'administrateur",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{adminId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{adminId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 403"
+          }
+        },
+        {
+          "name": "Alice liste tous les utilisateurs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs"
+              ]
+            },
+            "description": "Résultat attendu : 403 (réservé aux administrateurs)"
+          }
+        },
+        {
+          "name": "Alice appelle une route d'administration",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs"
+              ]
+            },
+            "description": "Résultat attendu : 403"
+          }
+        },
+        {
+          "name": "L'administrateur lit la liste d'alice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series"
+              ]
+            },
+            "description": "Résultat attendu : 200 (l'administrateur a tous les droits)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7 - Suppressions",
+      "item": [
+        {
+          "name": "Supprimer la série (épisodes vus compris)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAlice}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/utilisateurs/{{aliceId}}/series/{{serieId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "utilisateurs",
+                "{{aliceId}}",
+                "series",
+                "{{serieId}}"
+              ]
+            },
+            "description": "Résultat attendu : 204"
+          }
+        },
+        {
+          "name": "Supprimer le compte d'alice (administrateur)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenAdmin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/utilisateurs/{{aliceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "utilisateurs",
+                "{{aliceId}}"
+              ]
+            },
+            "description": "Résultat attendu : 204"
+          }
+        }
+      ]
+    }
+  ]
+}
