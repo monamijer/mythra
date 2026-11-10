@@ -9,8 +9,8 @@ const CLE_THEME = "theme";
 
 function appliquerTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
-  const btn = document.getElementById("btn-theme");
-  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  const icone = theme === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+  document.querySelectorAll("#btn-theme i, #btn-theme-drawer i").forEach((i) => { i.className = icone; });
 }
 
 function themeInitial() {
@@ -145,7 +145,13 @@ function afficherLogin() {
 function afficherApp(pseudo) {
   document.getElementById("login").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
-  if (pseudo) document.getElementById("nom-utilisateur").textContent = `👤 ${pseudo}`;
+  if (pseudo) {
+    document.getElementById("nom-utilisateur").textContent = pseudo;
+    document.getElementById("drawer-pseudo").textContent = pseudo;
+    const initiale = pseudo.trim().charAt(0) || "?";
+    document.getElementById("avatar-utilisateur").textContent = initiale;
+    document.getElementById("drawer-avatar").textContent = initiale;
+  }
   appliquerTheme(themeInitial()); // rafraîchit l'icône une fois le bouton visible
   afficherOngletAdminSiBesoin();
   chargerMesSeries();
@@ -215,34 +221,112 @@ document.getElementById("btn-deconnexion")?.addEventListener("click", deconnexio
 
 let ongletDecouvrirCharge = false;
 
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => {
-      b.classList.remove("active");
-      b.setAttribute("aria-selected", "false");
-    });
-    document.querySelectorAll(".tab-panel").forEach((p) => {
-      p.classList.remove("active");
-      p.setAttribute("hidden", "");
-    });
-    btn.classList.add("active");
-    btn.setAttribute("aria-selected", "true");
-    const panneau = document.getElementById(btn.dataset.tab);
-    panneau.classList.add("active");
-    panneau.removeAttribute("hidden");
-
-    if (btn.dataset.tab === "decouvrir" && !ongletDecouvrirCharge) {
-      ongletDecouvrirCharge = true;
-      chargerCategorieTmdb("populaires", document.querySelector(".souscat-btn[data-cat='populaires']"));
-    }
-     if (btn.dataset.tab === "admin") {
-      chargerStatsAdmin();
-      chargerListeAdmin();
-    }
-    if (btn.dataset.tab === "stats") {
-      chargerMesStats();
-    }
+function activerOnglet(nom, { chargerDefaut = true } = {}) {
+  document.querySelectorAll(".tab-btn").forEach((b) => {
+    const actif = b.dataset.tab === nom;
+    b.classList.toggle("active", actif);
+    if (actif) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
+  document.querySelectorAll(".drawer-link[data-tab]").forEach((l) => {
+    const actif = l.dataset.tab === nom && !l.dataset.cat && !l.dataset.focus && !("statut" in l.dataset);
+    l.classList.toggle("active", actif);
+  });
+  document.querySelectorAll(".tab-panel").forEach((p) => {
+    p.classList.remove("active");
+    p.setAttribute("hidden", "");
+  });
+  const panneau = document.getElementById(nom);
+  panneau.classList.add("active");
+  panneau.removeAttribute("hidden");
+
+  if (nom === "decouvrir" && !ongletDecouvrirCharge && chargerDefaut) {
+    ongletDecouvrirCharge = true;
+    chargerCategorieTmdb("populaires", document.querySelector(".souscat-btn[data-cat='populaires']"));
+  }
+  if (nom === "admin") {
+    chargerStatsAdmin();
+    chargerListeAdmin();
+  }
+  if (nom === "stats") {
+    chargerMesStats();
+  }
+}
+
+document.querySelectorAll(".tab-btn, .brand[data-tab]").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    activerOnglet(btn.dataset.tab);
+  });
+});
+
+// --- Navigation drawer ---
+
+const drawer = document.getElementById("drawer");
+const drawerOverlay = document.getElementById("drawer-overlay");
+const btnMenu = document.getElementById("btn-menu");
+
+function ouvrirDrawer() {
+  drawerOverlay.hidden = false;
+  drawer.removeAttribute("inert");
+  document.body.classList.add("drawer-ouvert");
+  btnMenu.setAttribute("aria-expanded", "true");
+  requestAnimationFrame(() => {
+    drawer.classList.add("open");
+    drawerOverlay.classList.add("open");
+  });
+  document.getElementById("btn-menu-fermer").focus();
+}
+
+function fermerDrawer({ rendreFocus = true } = {}) {
+  if (!drawer.classList.contains("open")) return;
+  drawer.classList.remove("open");
+  drawerOverlay.classList.remove("open");
+  drawer.setAttribute("inert", "");
+  document.body.classList.remove("drawer-ouvert");
+  btnMenu.setAttribute("aria-expanded", "false");
+  setTimeout(() => { if (!drawer.classList.contains("open")) drawerOverlay.hidden = true; }, 260);
+  if (rendreFocus) btnMenu.focus();
+}
+
+btnMenu.addEventListener("click", ouvrirDrawer);
+document.getElementById("btn-menu-fermer").addEventListener("click", () => fermerDrawer());
+drawerOverlay.addEventListener("click", () => fermerDrawer());
+
+drawer.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") { e.stopPropagation(); fermerDrawer(); return; }
+  if (e.key !== "Tab") return;
+  // Focus trap inside the drawer
+  const focusables = drawer.querySelectorAll("button:not([disabled]):not(.hidden)");
+  const visibles = [...focusables].filter((el) => el.offsetParent !== null);
+  const premier = visibles[0], dernier = visibles[visibles.length - 1];
+  if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+  else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+});
+
+drawer.querySelectorAll(".drawer-link").forEach((lien) => {
+  lien.addEventListener("click", () => {
+    const { tab, cat, statut, focus } = lien.dataset;
+    fermerDrawer({ rendreFocus: false });
+    activerOnglet(tab, { chargerDefaut: !cat });
+    if (cat) {
+      ongletDecouvrirCharge = true;
+      chargerCategorieTmdb(cat, document.querySelector(`.souscat-btn[data-cat='${cat}']`));
+    }
+    if (statut !== undefined) {
+      const sel = document.getElementById("select-filtre-statut");
+      sel.value = statut;
+      sel.dispatchEvent(new Event("change"));
+    }
+    if (focus) document.getElementById(focus)?.focus();
+    else document.getElementById("contenu-principal").focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+});
+
+document.getElementById("btn-theme-drawer").addEventListener("click", basculerTheme);
+document.getElementById("btn-deconnexion-drawer").addEventListener("click", () => {
+  fermerDrawer({ rendreFocus: false });
+  deconnexion();
 });
 
 // --- My series ---
@@ -1262,16 +1346,11 @@ async function afficherFilmographie(acteur) {
 
 function afficherOngletAdminSiBesoin() {
   const badge = document.getElementById("badge-role");
-  const ongletAdmin = document.getElementById("onglet-admin");
-  if (getRole() === "ADMIN") {
-    badge.textContent = "ADMIN";
-    badge.classList.add("badge-admin");
-    ongletAdmin.classList.remove("hidden");
-  } else {
-    badge.textContent = "";
-    badge.classList.remove("badge-admin");
-    ongletAdmin.classList.add("hidden");
-  }
+  const elementsAdmin = document.querySelectorAll(".admin-only");
+  const estAdmin = getRole() === "ADMIN";
+  badge.textContent = estAdmin ? "ADMIN" : "";
+  badge.classList.toggle("badge-admin", estAdmin);
+  elementsAdmin.forEach((el) => el.classList.toggle("hidden", !estAdmin));
 }
 
 async function chargerStatsAdmin() {

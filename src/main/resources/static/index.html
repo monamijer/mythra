@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Series TV — Suivi de séries</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="image/favicon.ico" type="image/x-icon">
 </head>
@@ -60,40 +61,110 @@
 
   <!-- ===== APPLICATION ===== -->
   <div id="app" class="hidden">
+    <a class="skip-link" href="#contenu-principal">Aller au contenu</a>
     <header class="app-header">
-      <div class="header-top">
-        <h1>📺 Series TV</h1>
-               <div class="header-user">
-          <span id="nom-utilisateur"></span>
-          <span id="badge-role"></span>
-          <button id="btn-theme" class="btn-theme" type="button"
-                  aria-label="Basculer le thème" title="Basculer clair / sombre">
-            🌙
+      <div class="header-inner">
+        <button id="btn-menu" class="icon-btn" type="button" aria-label="Ouvrir le menu"
+                aria-controls="drawer" aria-expanded="false" aria-haspopup="dialog">
+          <i class="bi bi-list" aria-hidden="true"></i>
+        </button>
+
+        <a class="brand" href="#" data-tab="mes-series" aria-label="Series TV — accueil">
+          <svg class="brand-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+            <rect x="2" y="5" width="28" height="19" rx="5" fill="currentColor"/>
+            <path d="M13 10.5v8l7-4z" fill="var(--hdr-bg-solid)"/>
+            <rect x="9" y="26.5" width="14" height="2.5" rx="1.25" fill="currentColor"/>
+          </svg>
+          <span class="brand-text">Series<span>TV</span></span>
+        </a>
+
+        <nav class="primary-nav" aria-label="Sections principales">
+          <button class="tab-btn active" data-tab="mes-series" id="onglet-mes-series" aria-current="page" type="button">
+            <i class="bi bi-collection-play" aria-hidden="true"></i> Mes séries
           </button>
-          <button id="btn-deconnexion" class="btn-deconnexion" type="button">Déconnexion</button>
+          <button class="tab-btn" data-tab="decouvrir" id="onglet-decouvrir" type="button">
+            <i class="bi bi-compass" aria-hidden="true"></i> Découvrir
+          </button>
+          <button class="tab-btn" data-tab="stats" id="onglet-stats" type="button">
+            <i class="bi bi-bar-chart-line" aria-hidden="true"></i> Stats
+          </button>
+          <button class="tab-btn admin-only hidden" data-tab="admin" id="onglet-admin" type="button">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i> Admin
+          </button>
+        </nav>
+
+        <div class="header-user">
+          <button id="btn-theme" class="icon-btn" type="button"
+                  aria-label="Basculer le thème" title="Basculer clair / sombre">
+            <i class="bi bi-moon-stars" aria-hidden="true"></i>
+          </button>
+          <div class="user-chip">
+            <span class="user-avatar" id="avatar-utilisateur" aria-hidden="true">?</span>
+            <span id="nom-utilisateur"></span>
+            <span id="badge-role"></span>
+          </div>
+          <button id="btn-deconnexion" class="icon-btn icon-btn-text" type="button" aria-label="Déconnexion" title="Déconnexion">
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+            <span class="hide-sm">Déconnexion</span>
+          </button>
         </div>
       </div>
-      <nav class="tabs" role="tablist" aria-label="Sections principales">
-        <button class="tab-btn active" data-tab="mes-series"
-                role="tab" aria-selected="true" aria-controls="mes-series" id="onglet-mes-series">
-          Mes séries
-        </button>
-        <button class="tab-btn" data-tab="decouvrir"
-                role="tab" aria-selected="false" aria-controls="decouvrir" id="onglet-decouvrir">
-          Découvrir (TMDB)
-        </button>
-        <button class="tab-btn admin-only hidden" data-tab="admin"
-                role="tab" aria-selected="false" aria-controls="admin" id="onglet-admin">
-          Admin
-        </button>
-                <button class="tab-btn" data-tab="stats"
-                role="tab" aria-selected="false" aria-controls="stats" id="onglet-stats">
-          📊 Stats
-        </button>
-      </nav>
     </header>
 
-    <main>
+    <!-- ===== NAVIGATION DRAWER ===== -->
+    <div id="drawer-overlay" class="drawer-overlay" hidden></div>
+    <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-titre" inert>
+      <div class="drawer-head">
+        <span class="drawer-user" id="drawer-titre">
+          <span class="user-avatar" id="drawer-avatar" aria-hidden="true">?</span>
+          <span id="drawer-pseudo">Menu</span>
+        </span>
+        <button id="btn-menu-fermer" class="icon-btn" type="button" aria-label="Fermer le menu">
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <nav class="drawer-body" aria-label="Navigation complète">
+        <section class="drawer-section" aria-labelledby="dr-lib">
+          <h2 id="dr-lib"><i class="bi bi-collection-play" aria-hidden="true"></i> Ma bibliothèque</h2>
+          <ul>
+            <li><button type="button" class="drawer-link" data-tab="mes-series" data-statut="">Toutes mes séries</button></li>
+            <li><button type="button" class="drawer-link" data-tab="mes-series" data-statut="A_VOIR">À voir</button></li>
+            <li><button type="button" class="drawer-link" data-tab="mes-series" data-statut="EN_COURS">En cours</button></li>
+            <li><button type="button" class="drawer-link" data-tab="mes-series" data-statut="TERMINEE">Terminées</button></li>
+            <li><button type="button" class="drawer-link" data-tab="mes-series" data-statut="ABANDONNEE">Abandonnées</button></li>
+          </ul>
+        </section>
+        <section class="drawer-section" aria-labelledby="dr-dec">
+          <h2 id="dr-dec"><i class="bi bi-compass" aria-hidden="true"></i> Découverte</h2>
+          <ul>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir">Découvrir des séries</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="populaires">Populaires</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="tendances">Tendances</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="mieux-notees">Mieux notées</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-cat="diffusees-bientot">Bientôt diffusées</button></li>
+            <li><button type="button" class="drawer-link" data-tab="decouvrir" data-focus="input-acteur">Rechercher un acteur</button></li>
+          </ul>
+        </section>
+        <section class="drawer-section" aria-labelledby="dr-ins">
+          <h2 id="dr-ins"><i class="bi bi-bar-chart-line" aria-hidden="true"></i> Statistiques</h2>
+          <ul>
+            <li><button type="button" class="drawer-link" data-tab="stats">Mes statistiques</button></li>
+          </ul>
+        </section>
+        <section class="drawer-section admin-only hidden" aria-labelledby="dr-adm">
+          <h2 id="dr-adm"><i class="bi bi-shield-lock" aria-hidden="true"></i> Administration</h2>
+          <ul>
+            <li><button type="button" class="drawer-link" data-tab="admin">Tableau de bord &amp; utilisateurs</button></li>
+          </ul>
+        </section>
+      </nav>
+      <div class="drawer-foot">
+        <button id="btn-theme-drawer" class="drawer-foot-btn" type="button"><i class="bi bi-moon-stars" aria-hidden="true"></i> Thème clair / sombre</button>
+        <button id="btn-deconnexion-drawer" class="drawer-foot-btn" type="button"><i class="bi bi-box-arrow-right" aria-hidden="true"></i> Déconnexion</button>
+      </div>
+    </aside>
+
+    <main id="contenu-principal" tabindex="-1">
       <!-- ===== MES SÉRIES ===== -->
       <section id="mes-series" class="tab-panel active" role="tabpanel"
                aria-labelledby="onglet-mes-series" tabindex="0">
