@@ -639,40 +639,48 @@ function ouvrirEditionSerie(serie) {
   const contenu = document.getElementById("detail-contenu");
   contenu.innerHTML = `
     <h2 id="titre-detail">Éditer « ${esc(serie.titre)} »</h2>
-    <form id="form-edition-serie" class="form-inline">
-      <label for="edit-titre" class="sr-only">Titre</label>
-      <input id="edit-titre" type="text" value="${esc(serie.titre || '')}" required>
-
-      <label for="edit-genre" class="sr-only">Genre</label>
-      <input id="edit-genre" type="text" value="${esc(serie.genre || '')}" placeholder="Genre">
-
-      <label for="edit-annee" class="sr-only">Année</label>
-      <input id="edit-annee" type="number" value="${serie.anneeSortie || ''}" placeholder="Année" min="1900" max="2100">
-
-      <label for="edit-note" class="sr-only">Note</label>
-      <input id="edit-note" type="number" value="${serie.note ?? ''}" placeholder="Note" min="0" max="10" step="0.1">
-
-      <label for="edit-image" class="sr-only">URL de l'image</label>
-      <input id="edit-image" type="url" value="${esc(serie.imageUrl || '')}" placeholder="URL de l'affiche">
-
-            <label for="edit-statut" class="sr-only">Statut de visionnage</label>
-      <select id="edit-statut">
-        <option value="">Auto (calculé)</option>
-        <option value="A_VOIR" ${serie.statutVisionnage === "A_VOIR" ? "selected" : ""}>À voir</option>
-        <option value="EN_COURS" ${serie.statutVisionnage === "EN_COURS" ? "selected" : ""}>En cours</option>
-        <option value="TERMINEE" ${serie.statutVisionnage === "TERMINEE" ? "selected" : ""}>Terminée</option>
-        <option value="ABANDONNEE" ${serie.statutVisionnage === "ABANDONNEE" ? "selected" : ""}>Abandonnée</option>
-      </select>
-
-      <label for="edit-note-perso" class="sr-only">Ma note personnelle</label>
-      <input id="edit-note-perso" type="number" min="1" max="10" step="1"
-             value="${serie.notePersonnelle ?? ''}" placeholder="Ma note (1-10)">
-
-      <label for="edit-critique" class="sr-only">Ma critique</label>
-      <textarea id="edit-critique" maxlength="500" rows="2"
-                placeholder="Ma critique (500 caractères max)">${serie.critique || ''}</textarea>
-
-      <button type="submit">Enregistrer</button>
+    <form id="form-edition-serie" class="form-edition">
+      <div class="champ champ-large">
+        <label for="edit-titre">Titre</label>
+        <input id="edit-titre" type="text" value="${esc(serie.titre || '')}" required>
+      </div>
+      <div class="champ">
+        <label for="edit-genre">Genre</label>
+        <input id="edit-genre" type="text" value="${esc(serie.genre || '')}" placeholder="Drame, Comédie…">
+      </div>
+      <div class="champ">
+        <label for="edit-annee">Année de sortie</label>
+        <input id="edit-annee" type="number" value="${serie.anneeSortie || ''}" placeholder="ex. 2024" min="1900" max="2100">
+      </div>
+      <div class="champ">
+        <label for="edit-note">Note du public (0–10)</label>
+        <input id="edit-note" type="number" value="${serie.note ?? ''}" placeholder="ex. 8.2" min="0" max="10" step="0.1">
+      </div>
+      <div class="champ">
+        <label for="edit-statut">Statut de visionnage</label>
+        <select id="edit-statut">
+          <option value="">Auto (calculé)</option>
+          <option value="A_VOIR" ${serie.statutVisionnage === "A_VOIR" ? "selected" : ""}>À voir</option>
+          <option value="EN_COURS" ${serie.statutVisionnage === "EN_COURS" ? "selected" : ""}>En cours</option>
+          <option value="TERMINEE" ${serie.statutVisionnage === "TERMINEE" ? "selected" : ""}>Terminée</option>
+          <option value="ABANDONNEE" ${serie.statutVisionnage === "ABANDONNEE" ? "selected" : ""}>Abandonnée</option>
+        </select>
+      </div>
+      <div class="champ champ-large">
+        <label for="edit-image">URL de l'affiche</label>
+        <input id="edit-image" type="url" value="${esc(serie.imageUrl || '')}" placeholder="https://…">
+      </div>
+      <div class="champ">
+        <label for="edit-note-perso">Ma note (1–10)</label>
+        <input id="edit-note-perso" type="number" min="1" max="10" step="1" value="${serie.notePersonnelle ?? ''}" placeholder="ex. 9">
+      </div>
+      <div class="champ champ-large">
+        <label for="edit-critique">Ma critique</label>
+        <textarea id="edit-critique" maxlength="500" rows="3" placeholder="500 caractères maximum">${esc(serie.critique || '')}</textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-primaire">Enregistrer</button>
+      </div>
     </form>
   `;
   ouvrirModale();
@@ -1066,20 +1074,22 @@ async function ouvrirDetailSerie(serie) {
       episodes = await appelApi(`${API}/saisons/${saison.id}/episodes`);
     } catch { /* leave empty */ }
 
-    html += `<h3>Saison ${saison.numero}</h3>`;
-    if (!Array.isArray(episodes) || episodes.length === 0) {
-      html += messageVide("Aucun épisode enregistré pour cette saison.");
+    const nbEpisodes = Array.isArray(episodes) ? episodes.length : 0;
+    html += `<section class="saison"><h3 class="saison-titre">Saison ${esc(saison.numero)} <span class="saison-compte">${nbEpisodes} épisode${nbEpisodes > 1 ? "s" : ""}</span></h3>`;
+    if (nbEpisodes === 0) {
+      html += messageVide("Aucun épisode enregistré pour cette saison.") + "</section>";
       continue;
     }
     for (const ep of episodes) {
       html += `
-        <div class="episode-ligne" data-episode-id="${ep.id}">
-          <span>Épisode ${ep.numero} — ${esc(ep.titre || '')}</span>
+        <label class="episode-ligne" data-episode-id="${ep.id}" for="ep-${ep.id}">
+          <span class="ep-num"><span class="sr-only">Épisode </span>${esc(ep.numero)}</span>
+          <span class="ep-titre">${esc(ep.titre || "Sans titre")}</span>
+          <span class="ep-duree">${ep.dureeMinutes ? esc(ep.dureeMinutes) + " min" : ""}</span>
           <input type="checkbox" class="check-vu" data-episode-id="${ep.id}" id="ep-${ep.id}">
-          <label for="ep-${ep.id}" class="sr-only">Marquer l'épisode ${ep.numero} comme vu</label>
-        </div>
-      `;
+        </label>`;
     }
+    html += "</section>";
   }
   contenu.innerHTML = html;
 
@@ -1192,7 +1202,6 @@ async function ouvrirDetailTmdb(serieTmdb) {
   }
 
   const imageUrl = detail.imageUrl || IMAGE_PLACEHOLDER;
-  const note = detail.note ? `⭐ ${detail.note.toFixed(1)} / 10` : "Pas encore noté";
   const description = detail.description && detail.description.trim()
     ? detail.description
     : "Aucune description disponible pour cette série.";
@@ -1206,21 +1215,23 @@ async function ouvrirDetailTmdb(serieTmdb) {
     <h2 id="titre-detail">${esc(detail.titre)}</h2>
 
     <div class="tmdb-fiche">
-      <img src="${imageUrl}" alt="Affiche de ${esc(detail.titre)}" class="tmdb-fiche-affiche">
+      <img src="${esc(imageUrl)}" alt="Affiche de ${esc(detail.titre)}" class="tmdb-fiche-affiche">
       <div class="tmdb-fiche-meta">
-        <p class="tmdb-fiche-ligne1">
-          ${dateDebut ? `<strong>Première diffusion : ${dateDebut}</strong>` : ""}
-          ${note ? ` · ${note}` : ""}
-        </p>
-        ${ligneSaisons ? `<p class="tmdb-fiche-saisons">📺 ${ligneSaisons}</p>` : ""}
+        <ul class="chips">
+          ${detail.note
+            ? `<li class="chip chip-note"><i class="bi bi-star-fill" aria-hidden="true"></i> ${detail.note.toFixed(1)} <span class="chip-sub">/ 10</span></li>`
+            : `<li class="chip">Pas encore noté</li>`}
+          ${dateDebut ? `<li class="chip"><i class="bi bi-calendar-event" aria-hidden="true"></i><span class="sr-only">Première diffusion : </span> ${dateDebut}</li>` : ""}
+          ${ligneSaisons ? `<li class="chip"><i class="bi bi-collection-play" aria-hidden="true"></i> ${ligneSaisons}</li>` : ""}
+        </ul>
         ${ligneStatut ? `<p class="tmdb-fiche-statut">${ligneStatut}</p>` : ""}
         <p class="tmdb-fiche-desc">${esc(description)}</p>
         <div class="tmdb-fiche-actions">
           ${htmlBoutonImport(detail.tmdbId, "Importer dans ma liste", "btn-importer-modal")}
           <a class="btn-tmdb-externe"
              href="https://www.themoviedb.org/tv/${detail.tmdbId}"
-             target="_blank" rel="noopener">
-            Voir sur TMDB ↗
+             target="_blank" rel="noopener noreferrer">
+            Voir sur TMDB <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span class="sr-only">(nouvel onglet)</span>
           </a>
         </div>
       </div>
@@ -1234,7 +1245,7 @@ async function ouvrirDetailTmdb(serieTmdb) {
             <div class="casting-item">
               <img src="${esc(m.photoUrl || IMAGE_PLACEHOLDER)}" alt="${esc(m.nom)}">
               <div class="casting-nom">${esc(m.nom)}</div>
-              <div class="casting-role">${m.personnage || ""}</div>
+              <div class="casting-role">${esc(m.personnage || "")}</div>
             </div>
           `).join("")}
         </div>
