@@ -343,7 +343,7 @@ function activerOnglet(nom, { chargerDefaut = true } = {}) {
   }
 }
 
-document.querySelectorAll(".tab-btn, .brand[data-tab]").forEach((btn) => {
+document.querySelectorAll(".tab-btn, .app-header .brand[data-tab]").forEach((btn) => {
   btn.addEventListener("click", (e) => {
     e.preventDefault();
     activerOnglet(btn.dataset.tab);
@@ -394,25 +394,49 @@ drawer.addEventListener("keydown", (e) => {
   else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
 });
 
+/** Shared in-app navigation used by the drawer and the footer (data-tab / data-cat / data-statut / data-mode / data-focus). */
+function naviguerVers({ tab, cat, statut, focus, mode }) {
+  activerOnglet(tab, { chargerDefaut: !cat });
+  if (cat) {
+    ongletDecouvrirCharge = true;
+    chargerCategorieTmdb(cat, document.querySelector(`.souscat-btn[data-cat='${cat}']`));
+  }
+  if (statut !== undefined) {
+    const sel = document.getElementById("select-filtre-statut");
+    sel.value = statut;
+    sel.dispatchEvent(new Event("change"));
+  }
+  if (mode) definirModeRecherche(mode);
+  if (focus) document.getElementById(focus)?.focus();
+  else document.getElementById("contenu-principal").focus({ preventScroll: true });
+  window.scrollTo({ top: 0, behavior: reduireMouvement() ? "auto" : "smooth" });
+}
+
+function reduireMouvement() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 drawer.querySelectorAll(".drawer-link").forEach((lien) => {
   lien.addEventListener("click", () => {
-    const { tab, cat, statut, focus } = lien.dataset;
     fermerDrawer({ rendreFocus: false });
-    activerOnglet(tab, { chargerDefaut: !cat });
-    if (cat) {
-      ongletDecouvrirCharge = true;
-      chargerCategorieTmdb(cat, document.querySelector(`.souscat-btn[data-cat='${cat}']`));
-    }
-    if (statut !== undefined) {
-      const sel = document.getElementById("select-filtre-statut");
-      sel.value = statut;
-      sel.dispatchEvent(new Event("change"));
-    }
-    if (lien.dataset.mode) definirModeRecherche(lien.dataset.mode);
-    if (focus) document.getElementById(focus)?.focus();
-    else document.getElementById("contenu-principal").focus({ preventScroll: true });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    naviguerVers(lien.dataset);
   });
+});
+
+// --- Footer ---
+
+document.querySelectorAll(".app-footer a[data-tab]").forEach((lien) => {
+  lien.addEventListener("click", (e) => {
+    e.preventDefault();
+    naviguerVers(lien.dataset);
+  });
+});
+
+document.getElementById("footer-annee").textContent = new Date().getFullYear();
+
+document.getElementById("btn-haut-page").addEventListener("click", () => {
+  window.scrollTo({ top: 0, behavior: reduireMouvement() ? "auto" : "smooth" });
+  document.getElementById("contenu-principal").focus({ preventScroll: true });
 });
 
 document.getElementById("btn-theme-drawer").addEventListener("click", basculerTheme);

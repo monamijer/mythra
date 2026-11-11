@@ -310,6 +310,65 @@
       </section>
     </main>
 
+    <footer class="app-footer">
+      <div class="footer-inner">
+        <div class="footer-grille">
+          <section class="footer-col footer-marque" aria-labelledby="ft-marque">
+            <a class="brand" href="#mes-series" data-tab="mes-series" aria-label="Series TV — ma bibliothèque">
+              <svg class="brand-mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+                <rect x="2" y="5" width="28" height="19" rx="5" fill="currentColor"/>
+                <path d="M13 10.5v8l7-4z" fill="var(--hdr-bg-solid)"/>
+                <rect x="9" y="26.5" width="14" height="2.5" rx="1.25" fill="currentColor"/>
+              </svg>
+              <span class="brand-text" id="ft-marque">Series<span>TV</span></span>
+            </a>
+            <p>Suivez vos séries, découvrez de nouveaux titres et gardez la trace de votre progression, épisode après épisode.</p>
+            <ul>
+              <li><a href="#decouvrir" data-tab="decouvrir">Découvrir des séries</a></li>
+              <li><a href="#mes-series" data-tab="mes-series">Ma bibliothèque</a></li>
+            </ul>
+          </section>
+
+          <nav class="footer-col" aria-labelledby="ft-nav">
+            <h2 id="ft-nav">Navigation</h2>
+            <ul>
+              <li><a href="#mes-series" data-tab="mes-series">Mes séries</a></li>
+              <li><a href="#decouvrir" data-tab="decouvrir">Découvrir</a></li>
+              <li><a href="#decouvrir" data-tab="decouvrir" data-cat="populaires">Séries populaires</a></li>
+              <li><a href="#decouvrir" data-tab="decouvrir" data-cat="tendances">Séries tendances</a></li>
+              <li><a href="#stats" data-tab="stats">Statistiques</a></li>
+              <li class="admin-only hidden"><a href="#admin" data-tab="admin">Administration</a></li>
+            </ul>
+          </nav>
+
+          <nav class="footer-col" aria-labelledby="ft-res">
+            <h2 id="ft-res">Ressources</h2>
+            <ul>
+              <li><a href="https://github.com/monamijer/mythra" target="_blank" rel="noopener noreferrer">Dépôt GitHub <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span class="sr-only">(nouvel onglet)</span></a></li>
+              <li><a href="https://github.com/monamijer/mythra/tree/main/docs" target="_blank" rel="noopener noreferrer">Documentation de l'API <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span class="sr-only">(nouvel onglet)</span></a></li>
+              <li><a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">Données TMDB <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span class="sr-only">(nouvel onglet)</span></a></li>
+            </ul>
+          </nav>
+
+          <section class="footer-col" aria-labelledby="ft-social">
+            <h2 id="ft-social">Restons en contact</h2>
+            <ul class="footer-social">
+              <li><a href="https://github.com/monamijer" target="_blank" rel="noopener noreferrer" aria-label="GitHub (nouvel onglet)" title="GitHub"><i class="bi bi-github" aria-hidden="true"></i></a></li>
+              <li><a href="https://www.linkedin.com/in/monami-j%C3%A9r%C3%B4me-025038275/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn (nouvel onglet)" title="LinkedIn"><i class="bi bi-linkedin" aria-hidden="true"></i></a></li>
+              <li><a href="https://x.com/JeromeMonami" target="_blank" rel="noopener noreferrer" aria-label="X / Twitter (nouvel onglet)" title="X / Twitter"><i class="bi bi-twitter-x" aria-hidden="true"></i></a></li>
+              <li><a href="https://www.instagram.com/monamijerome" target="_blank" rel="noopener noreferrer" aria-label="Instagram (nouvel onglet)" title="Instagram"><i class="bi bi-instagram" aria-hidden="true"></i></a></li>
+            </ul>
+            <p class="footer-note">Un projet conçu et développé par Jérôme Monami.</p>
+          </section>
+        </div>
+
+        <div class="footer-bas">
+          <p>© <span id="footer-annee">2026</span> Series TV. Ce produit utilise l'API TMDB mais n'est ni soutenu ni certifié par TMDB.</p>
+          <button type="button" id="btn-haut-page" class="btn-haut"><i class="bi bi-arrow-up" aria-hidden="true"></i> Haut de page</button>
+        </div>
+      </div>
+    </footer>
+
     <div id="panneau-detail" class="panneau-detail hidden"
          role="dialog" aria-modal="true" aria-labelledby="titre-detail">
       <div class="panneau-contenu">
