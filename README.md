@@ -9,7 +9,7 @@ Chaque utilisateur gère sa propre liste de séries, suit sa progression épisod
 **Prérequis** : Java 21, MySQL ou MariaDB (XAMPP convient), et une clé d'API TMDB v3 pour les fonctions d'enrichissement.
 
 1. Démarrer MySQL (XAMPP : module MySQL).
-2. Copier `.env.example` en `.env` et renseigner les valeurs (mot de passe de la base si elle en a un, clé TMDB). Sans `.env`, l'application démarre avec la configuration XAMPP par défaut (utilisateur `root`, mot de passe vide).
+2. Copier `.env.example` en `.env` et renseigner les valeurs (mot de passe de la base si elle en a un, clé TMDB). Sans `.env`, l'application démarre avec la configuration XAMPP par défaut (utilisateur `root`, mot de passe vide) et un secret JWT de développement. Pour un vrai usage, générer son propre secret (Base64) avec `openssl rand -base64 48`.
 3. Lancer l'application :
 
    ```bash
