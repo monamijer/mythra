@@ -99,6 +99,32 @@ class SecuriteServiceTest {
         assertThat(securite.peutAcceder(5L)).isFalse();
     }
 
+    // ---------- estUtilisateurCourant: like peutAcceder, but admins get no exception ----------
+
+    @Test
+    void estUtilisateurCourant_refuseUnAdministrateurPourUnAutreCompte() {
+        connecter("admin@example.com", "ROLE_ADMIN");
+        when(utilisateurRepository.findByEmail("admin@example.com"))
+                .thenReturn(Optional.of(utilisateur(1L, "admin@example.com")));
+
+        assertThat(securite.estUtilisateurCourant(42L)).isFalse();
+    }
+
+    @Test
+    void estUtilisateurCourant_accepteUnUtilisateurPourSonPropreCompte() {
+        connecter("alice@example.com", "ROLE_USER");
+        when(utilisateurRepository.findByEmail("alice@example.com"))
+                .thenReturn(Optional.of(utilisateur(5L, "alice@example.com")));
+
+        assertThat(securite.estUtilisateurCourant(5L)).isTrue();
+    }
+
+    @Test
+    void estUtilisateurCourant_refuseQuandPersonneNEstConnecte() {
+        assertThat(securite.estUtilisateurCourant(5L)).isFalse();
+        verifyNoInteractions(utilisateurRepository);
+    }
+
     // ---------- possedeSaison: a season belongs to the owner of its series ----------
 
     @Test

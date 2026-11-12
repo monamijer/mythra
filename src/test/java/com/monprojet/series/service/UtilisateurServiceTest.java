@@ -1,11 +1,13 @@
 package com.monprojet.series.service;
 
+import com.monprojet.series.entity.PhotoProfil;
 import com.monprojet.series.entity.RoleUtilisateur;
 import com.monprojet.series.entity.Serie;
 import com.monprojet.series.entity.StatutUtilisateur;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.exception.BusinessException;
 import com.monprojet.series.exception.ResourceNotFoundException;
+import com.monprojet.series.repository.PhotoProfilRepository;
 import com.monprojet.series.repository.SerieRepository;
 import com.monprojet.series.repository.UtilisateurRepository;
 import com.monprojet.series.repository.VisionnageRepository;
@@ -37,6 +39,7 @@ class UtilisateurServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private SerieRepository serieRepository;
     @Mock private VisionnageRepository visionnageRepository;
+    @Mock private PhotoProfilRepository photoProfilRepository;
 
     @InjectMocks private UtilisateurService utilisateurService;
 
@@ -171,5 +174,18 @@ class UtilisateurServiceTest {
         ordre.verify(serieRepository).delete(serie10);
         ordre.verify(serieRepository).delete(serie11);
         ordre.verify(utilisateurRepository).delete(alice);
+    }
+
+    @Test
+    void supprimer_effaceAussiLaPhotoDeProfil() {
+        Utilisateur alice = utilisateur(2L, RoleUtilisateur.USER, StatutUtilisateur.APPROUVE);
+        PhotoProfil photo = new PhotoProfil(2L, "image/jpeg", new byte[] {1});
+        when(utilisateurRepository.findById(2L)).thenReturn(Optional.of(alice));
+        when(photoProfilRepository.findById(2L)).thenReturn(Optional.of(photo));
+
+        utilisateurService.supprimer(2L);
+
+        verify(photoProfilRepository).delete(photo);
+        verify(utilisateurRepository).delete(alice);
     }
 }

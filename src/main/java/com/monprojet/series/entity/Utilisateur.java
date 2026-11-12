@@ -51,6 +51,10 @@ public class Utilisateur {
     @Column(name = "derniere_connexion")
     private LocalDateTime derniereConnexion;
 
+    // null = no profile photo; otherwise the upload time in ms, used to bust client caches
+    @Column(name = "photo_version")
+    private Long photoVersion;
+
     @Builder.Default
     @OneToMany(mappedBy = "utilisateur", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Visionnage> visionnages = new ArrayList<>();

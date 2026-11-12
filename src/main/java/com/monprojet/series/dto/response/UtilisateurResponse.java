@@ -9,6 +9,7 @@ public record UtilisateurResponse(
         String role,
         String statut,
         LocalDateTime dateInscription,
-        LocalDateTime derniereConnexion
+        LocalDateTime derniereConnexion,
+        Long photoVersion
 ) {
 }

@@ -8,6 +8,7 @@ import com.monprojet.series.entity.StatutUtilisateur;
 import com.monprojet.series.entity.Utilisateur;
 import com.monprojet.series.exception.BusinessException;
 import com.monprojet.series.exception.ResourceNotFoundException;
+import com.monprojet.series.repository.PhotoProfilRepository;
 import com.monprojet.series.repository.SerieRepository;
 import com.monprojet.series.repository.UtilisateurRepository;
 import com.monprojet.series.repository.VisionnageRepository;
@@ -27,6 +28,7 @@ public class UtilisateurService {
     private final PasswordEncoder passwordEncoder;
     private final SerieRepository serieRepository;
     private final VisionnageRepository visionnageRepository;
+    private final PhotoProfilRepository photoProfilRepository;
 
     @Transactional(readOnly = true)
     public List<Utilisateur> listerTous() {
@@ -90,7 +92,8 @@ public class UtilisateurService {
     /**
      * Deletes a user together with everything they own, in an order that
      * respects the foreign keys: watch records, then series (their seasons and
-     * episodes follow through the cascade on Serie), then the account itself.
+     * episodes follow through the cascade on Serie), then the profile photo and
+     * the account itself.
      */
     public void supprimer(Long id) {
         Utilisateur u = obtenirParId(id);
@@ -105,6 +108,7 @@ public class UtilisateurService {
         serieRepository.findByUtilisateurId(id).forEach(serieRepository::delete);
         serieRepository.flush();
 
+        photoProfilRepository.findById(id).ifPresent(photoProfilRepository::delete);
         utilisateurRepository.findById(id).ifPresent(utilisateurRepository::delete);
     }
 

@@ -34,6 +34,19 @@ public class SecuriteService {
     }
 
     /**
+     * True only when {userId} is the authenticated user's own id. Unlike
+     * peutAcceder, admins get no exception: used for actions that must stay
+     * personal (profile, password, photo upload), and that hand back a token.
+     */
+    public boolean estUtilisateurCourant(Long userId) {
+        Authentication authentication = authentificationCourante();
+        if (authentication == null) return false;
+        return idUtilisateurCourant(authentication)
+                .map(id -> id.equals(userId))
+                .orElse(false);
+    }
+
+    /**
      * True for an admin, or when the season belongs to a series owned by the
      * authenticated user. An unknown season gives false as well, so a caller
      * cannot tell "does not exist" from "belongs to someone else".

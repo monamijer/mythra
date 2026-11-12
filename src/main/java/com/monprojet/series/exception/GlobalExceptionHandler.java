@@ -13,6 +13,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -52,6 +54,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> gererParametreManquant(MissingServletRequestParameterException ex) {
         return reponse(HttpStatus.BAD_REQUEST, "Paramètre manquant",
                 "Le paramètre '" + ex.getParameterName() + "' est obligatoire.");
+    }
+
+    // Multipart upload without the expected "fichier" part
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiErrorResponse> gererPartieManquante(MissingServletRequestPartException ex) {
+        return reponse(HttpStatus.BAD_REQUEST, "Fichier manquant",
+                "Le fichier '" + ex.getRequestPartName() + "' est obligatoire.");
+    }
+
+    // Rejected by the servlet container before the controller runs (spring.servlet.multipart.*)
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> gererFichierTropGros(MaxUploadSizeExceededException ex) {
+        return reponse(HttpStatus.PAYLOAD_TOO_LARGE, "Fichier trop volumineux",
+                "Le fichier dépasse la taille maximale autorisée (1 Mo).");
     }
 
     // ---------- 401 / 403: who are you, and may you ----------

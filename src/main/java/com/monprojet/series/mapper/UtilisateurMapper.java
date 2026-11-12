@@ -16,7 +16,8 @@ public final class UtilisateurMapper {
                 utilisateur.getRole().name(),
                 utilisateur.getStatut().name(),
                 utilisateur.getDateInscription(),
-                utilisateur.getDerniereConnexion()
+                utilisateur.getDerniereConnexion(),
+                utilisateur.getPhotoVersion()
         );
     }
 }
