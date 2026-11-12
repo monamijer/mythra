@@ -98,11 +98,11 @@
                   aria-label="Basculer le thème" title="Basculer clair / sombre">
             <i class="bi bi-moon-stars" aria-hidden="true"></i>
           </button>
-          <div class="user-chip">
-            <span class="user-avatar" id="avatar-utilisateur" aria-hidden="true">?</span>
+          <button type="button" class="user-chip" id="btn-profil" aria-label="Mon profil" title="Mon profil">
+            <span class="user-avatar js-avatar" id="avatar-utilisateur" aria-hidden="true">?</span>
             <span id="nom-utilisateur"></span>
             <span id="badge-role"></span>
-          </div>
+          </button>
           <button id="btn-deconnexion" class="icon-btn icon-btn-text" type="button" aria-label="Déconnexion" title="Déconnexion">
             <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
             <span class="hide-sm">Déconnexion</span>
@@ -116,7 +116,7 @@
     <aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-titre" inert>
       <div class="drawer-head">
         <span class="drawer-user" id="drawer-titre">
-          <span class="user-avatar" id="drawer-avatar" aria-hidden="true">?</span>
+          <span class="user-avatar js-avatar" id="drawer-avatar" aria-hidden="true">?</span>
           <span id="drawer-pseudo">Menu</span>
         </span>
         <button id="btn-menu-fermer" class="icon-btn" type="button" aria-label="Fermer le menu">
@@ -149,6 +149,12 @@
           <h2 id="dr-ins"><i class="bi bi-bar-chart-line" aria-hidden="true"></i> Statistiques</h2>
           <ul>
             <li><button type="button" class="drawer-link" data-tab="stats">Mes statistiques</button></li>
+          </ul>
+        </section>
+        <section class="drawer-section" aria-labelledby="dr-cpt">
+          <h2 id="dr-cpt"><i class="bi bi-person-circle" aria-hidden="true"></i> Mon compte</h2>
+          <ul>
+            <li><button type="button" class="drawer-link" data-tab="profil">Mon profil</button></li>
           </ul>
         </section>
         <section class="drawer-section admin-only hidden" aria-labelledby="dr-adm">
@@ -282,6 +288,79 @@
       </section>
 
       <!-- ===== ADMIN ===== -->
+      <section id="profil" class="tab-panel" role="tabpanel"
+               aria-labelledby="profil-nom" tabindex="0" hidden>
+
+        <div class="page-banner">
+          <div class="profil-identite">
+            <span class="user-avatar xl js-avatar" aria-hidden="true">?</span>
+            <div>
+              <h2 id="profil-nom">Mon profil</h2>
+              <p id="profil-sous-titre"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="profil-grille">
+          <section class="box" aria-labelledby="bp-photo">
+            <h3 class="box-titre" id="bp-photo"><i class="bi bi-camera" aria-hidden="true"></i> Photo de profil</h3>
+            <div class="photo-zone">
+              <span class="user-avatar xxl js-avatar" aria-hidden="true">?</span>
+              <div class="photo-actions">
+                <input type="file" id="input-photo" class="sr-only" accept="image/jpeg,image/png,image/webp">
+                <label for="input-photo" class="btn-primaire btn-fichier"><i class="bi bi-upload" aria-hidden="true"></i> Choisir une image</label>
+                <button type="button" id="btn-photo-supprimer" class="btn-secondaire" disabled>Supprimer la photo</button>
+                <p class="aide">JPEG, PNG ou WebP. L'image est recadrée en carré puis réduite automatiquement.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="box" aria-labelledby="bp-infos">
+            <h3 class="box-titre" id="bp-infos"><i class="bi bi-person-vcard" aria-hidden="true"></i> Informations</h3>
+            <form id="form-profil" class="form-edition">
+              <div class="champ champ-large">
+                <label for="profil-pseudo">Pseudo</label>
+                <input id="profil-pseudo" type="text" maxlength="50" required autocomplete="username">
+              </div>
+              <div class="champ champ-large">
+                <label for="profil-email">Adresse e-mail</label>
+                <input id="profil-email" type="email" maxlength="255" required autocomplete="email">
+              </div>
+              <div class="form-actions">
+                <button type="submit" id="btn-profil-enregistrer" class="btn-primaire">Enregistrer</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="box" aria-labelledby="bp-mdp">
+            <h3 class="box-titre" id="bp-mdp"><i class="bi bi-key" aria-hidden="true"></i> Mot de passe</h3>
+            <form id="form-mdp" class="form-edition">
+              <div class="champ champ-large">
+                <label for="mdp-actuel">Mot de passe actuel</label>
+                <input id="mdp-actuel" type="password" required autocomplete="current-password">
+              </div>
+              <div class="champ">
+                <label for="mdp-nouveau">Nouveau mot de passe</label>
+                <input id="mdp-nouveau" type="password" required minlength="8" autocomplete="new-password">
+              </div>
+              <div class="champ">
+                <label for="mdp-confirmation">Confirmation</label>
+                <input id="mdp-confirmation" type="password" required minlength="8" autocomplete="new-password">
+              </div>
+              <p class="aide champ-large">8 caractères minimum.</p>
+              <div class="form-actions">
+                <button type="submit" id="btn-mdp-enregistrer" class="btn-primaire">Changer le mot de passe</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="box" aria-labelledby="bp-compte">
+            <h3 class="box-titre" id="bp-compte"><i class="bi bi-info-circle" aria-hidden="true"></i> Mon compte</h3>
+            <dl class="infos-compte" id="infos-compte"></dl>
+          </section>
+        </div>
+      </section>
+
       <section id="admin" class="tab-panel" role="tabpanel"
                aria-labelledby="onglet-admin" tabindex="0" hidden>
 
@@ -337,6 +416,7 @@
               <li><a href="#decouvrir" data-tab="decouvrir" data-cat="populaires">Séries populaires</a></li>
               <li><a href="#decouvrir" data-tab="decouvrir" data-cat="tendances">Séries tendances</a></li>
               <li><a href="#stats" data-tab="stats">Statistiques</a></li>
+              <li><a href="#profil" data-tab="profil">Mon profil</a></li>
               <li class="admin-only hidden"><a href="#admin" data-tab="admin">Administration</a></li>
             </ul>
           </nav>

@@ -237,16 +237,13 @@ function afficherApp(pseudo) {
   document.getElementById("login").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
   if (pseudo) {
-    document.getElementById("nom-utilisateur").textContent = pseudo;
-    document.getElementById("drawer-pseudo").textContent = pseudo;
-    const initiale = pseudo.trim().charAt(0) || "?";
-    document.getElementById("avatar-utilisateur").textContent = initiale;
-    document.getElementById("drawer-avatar").textContent = initiale;
+    afficherIdentite(pseudo);
   }
   appliquerTheme(themeInitial()); // rafraîchit l'icône une fois le bouton visible
   afficherOngletAdminSiBesoin();
   chargerMesSeries();
   chargerGenres();
+  chargerProfil(true); // loads the profile photo for the header avatar
 }
 
 document.getElementById("form-connexion").addEventListener("submit", async (e) => {
@@ -318,6 +315,11 @@ function activerOnglet(nom, { chargerDefaut = true } = {}) {
     b.classList.toggle("active", actif);
     if (actif) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
+  const puce = document.getElementById("btn-profil");
+  if (puce) {
+    puce.classList.toggle("actif", nom === "profil");
+    if (nom === "profil") puce.setAttribute("aria-current", "page"); else puce.removeAttribute("aria-current");
+  }
   document.querySelectorAll(".drawer-link[data-tab]").forEach((l) => {
     const actif = l.dataset.tab === nom && !l.dataset.cat && !l.dataset.focus && !("statut" in l.dataset);
     l.classList.toggle("active", actif);
@@ -340,6 +342,9 @@ function activerOnglet(nom, { chargerDefaut = true } = {}) {
   }
   if (nom === "stats") {
     chargerMesStats();
+  }
+  if (nom === "profil") {
+    chargerProfil();
   }
 }
 
@@ -1805,6 +1810,221 @@ async function chargerMesStats() {
     </div>
     <div class="stats-layout">${donut}${progression}${notes}${genres}${activite}</div>`;
 }
+
+// --- Profile page (identity, password, photo) ---
+
+const TAILLE_AVATAR = 256;           // px, side of the square sent to the server
+const TAILLE_MAX_SOURCE = 10 * 1024 * 1024; // bytes, before the browser shrinks the picture
+const LIBELLES_COMPTE = { APPROUVE: "Approuvé", EN_ATTENTE: "En attente", REFUSE: "Refusé" };
+
+let avatarUrl = null; // object URL of the current photo; null means "show the initial"
+
+function afficherIdentite(pseudo) {
+  document.getElementById("nom-utilisateur").textContent = pseudo;
+  document.getElementById("drawer-pseudo").textContent = pseudo;
+  appliquerAvatar();
+}
+
+/** Paints every avatar (header, drawer, profile page) with the photo, or the initial as a fallback. */
+function appliquerAvatar() {
+  const initiale = (localStorage.getItem("pseudo") || "?").trim().charAt(0) || "?";
+  document.querySelectorAll(".js-avatar").forEach((el) => {
+    el.classList.toggle("has-photo", Boolean(avatarUrl));
+    el.style.backgroundImage = avatarUrl ? `url("${avatarUrl}")` : "";
+    el.textContent = avatarUrl ? "" : initiale;
+  });
+}
+
+/** The photo route is protected, so it is fetched with the JWT and shown through an object URL. */
+async function chargerPhotoProfil(version) {
+  if (avatarUrl) {
+    URL.revokeObjectURL(avatarUrl);
+    avatarUrl = null;
+  }
+  if (version) {
+    try {
+      const reponse = await fetch(`${API}/utilisateurs/${getUtilisateurId()}/photo?v=${version}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (reponse.ok) avatarUrl = URL.createObjectURL(await reponse.blob());
+    } catch { /* the initial stays as fallback */ }
+  }
+  appliquerAvatar();
+}
+
+function formaterDate(iso, avecHeure = false) {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  return avecHeure
+    ? date.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })
+    : date.toLocaleDateString("fr-FR", { dateStyle: "long" });
+}
+
+function remplirProfil(u) {
+  document.getElementById("profil-nom").textContent = u.pseudo;
+  document.getElementById("profil-sous-titre").textContent =
+    `${u.role === "ADMIN" ? "Administrateur" : "Membre"} · inscrit le ${formaterDate(u.dateInscription)}`;
+  document.getElementById("profil-pseudo").value = u.pseudo;
+  document.getElementById("profil-email").value = u.email;
+  document.getElementById("btn-photo-supprimer").disabled = !u.photoVersion;
+  document.getElementById("infos-compte").innerHTML = `
+    <dt>Rôle</dt><dd>${u.role === "ADMIN" ? "Administrateur" : "Utilisateur"}</dd>
+    <dt>Statut</dt><dd>${esc(LIBELLES_COMPTE[u.statut] || u.statut)}</dd>
+    <dt>Membre depuis</dt><dd>${esc(formaterDate(u.dateInscription))}</dd>
+    <dt>Dernière connexion</dt><dd>${esc(formaterDate(u.derniereConnexion, true))}</dd>`;
+}
+
+async function chargerProfil(silencieux = false) {
+  try {
+    const u = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}`);
+    remplirProfil(u);
+    await chargerPhotoProfil(u.photoVersion);
+  } catch (err) {
+    if (!silencieux) afficherToast(err.message, "erreur");
+  }
+}
+
+document.getElementById("btn-profil").addEventListener("click", () => naviguerVers({ tab: "profil" }));
+
+// ---- Identity ----
+
+document.getElementById("form-profil").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const bouton = document.getElementById("btn-profil-enregistrer");
+  bouton.disabled = true;
+  try {
+    const r = await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/profil`, {
+      method: "PUT",
+      body: JSON.stringify({
+        pseudo: document.getElementById("profil-pseudo").value.trim(),
+        email: document.getElementById("profil-email").value.trim(),
+      }),
+    });
+    // The JWT is bound to the email: the answer carries a fresh token
+    setSession(r.token, r.utilisateurId, r.pseudo, r.role, r.statut);
+    afficherIdentite(r.pseudo);
+    await chargerProfil(true);
+    afficherToast("Profil mis à jour.", "succes");
+  } catch (err) {
+    afficherToast(err.message, "erreur");
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
+// ---- Password ----
+
+document.getElementById("form-mdp").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nouveau = document.getElementById("mdp-nouveau").value;
+  if (nouveau !== document.getElementById("mdp-confirmation").value) {
+    afficherToast("La confirmation ne correspond pas au nouveau mot de passe.", "erreur");
+    return;
+  }
+  const bouton = document.getElementById("btn-mdp-enregistrer");
+  bouton.disabled = true;
+  try {
+    await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/mot-de-passe`, {
+      method: "PUT",
+      body: JSON.stringify({
+        ancienMotDePasse: document.getElementById("mdp-actuel").value,
+        nouveauMotDePasse: nouveau,
+      }),
+    });
+    e.target.reset();
+    afficherToast("Mot de passe modifié.", "succes");
+  } catch (err) {
+    afficherToast(err.message, "erreur");
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
+// ---- Photo ----
+
+/** Crops the picture to a centered square and shrinks it to a small JPEG. */
+function redimensionnerImage(fichier) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(fichier);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      const cote = Math.min(image.naturalWidth, image.naturalHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = TAILLE_AVATAR;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff"; // transparent PNGs would otherwise turn black in a JPEG
+      ctx.fillRect(0, 0, TAILLE_AVATAR, TAILLE_AVATAR);
+      ctx.drawImage(image, (image.naturalWidth - cote) / 2, (image.naturalHeight - cote) / 2, cote, cote,
+        0, 0, TAILLE_AVATAR, TAILLE_AVATAR);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Conversion de l'image impossible."))),
+        "image/jpeg", 0.88);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Ce fichier n'est pas une image valide."));
+    };
+    image.src = url;
+  });
+}
+
+async function televerserPhoto(fichier) {
+  if (!/^image\/(jpeg|png|webp)$/.test(fichier.type)) {
+    afficherToast("Format non pris en charge : utilisez une image JPEG, PNG ou WebP.", "erreur");
+    return;
+  }
+  if (fichier.size > TAILLE_MAX_SOURCE) {
+    afficherToast("Cette image est trop volumineuse (10 Mo maximum).", "erreur");
+    return;
+  }
+  const zone = document.querySelector(".photo-zone");
+  zone.setAttribute("aria-busy", "true");
+  try {
+    const blob = await redimensionnerImage(fichier);
+    const formulaire = new FormData();
+    formulaire.append("fichier", blob, "avatar.jpg");
+    // No Content-Type header here: the browser must add the multipart boundary itself
+    const reponse = await fetch(`${API}/utilisateurs/${getUtilisateurId()}/photo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: formulaire,
+    });
+    if (reponse.status === 401 || reponse.status === 403) {
+      deconnexion();
+      return;
+    }
+    if (!reponse.ok) {
+      const erreur = await reponse.json().catch(() => ({}));
+      throw new Error(erreur.message || "L'envoi de la photo a échoué.");
+    }
+    const u = await reponse.json();
+    document.getElementById("btn-photo-supprimer").disabled = !u.photoVersion;
+    await chargerPhotoProfil(u.photoVersion);
+    afficherToast("Photo de profil mise à jour.", "succes");
+  } catch (err) {
+    afficherToast(err.message, "erreur");
+  } finally {
+    zone.setAttribute("aria-busy", "false");
+    document.getElementById("input-photo").value = "";
+  }
+}
+
+document.getElementById("input-photo").addEventListener("change", (e) => {
+  const fichier = e.target.files[0];
+  if (fichier) televerserPhoto(fichier);
+});
+
+document.getElementById("btn-photo-supprimer").addEventListener("click", async () => {
+  if (!confirm("Supprimer votre photo de profil ?")) return;
+  try {
+    await appelApi(`${API}/utilisateurs/${getUtilisateurId()}/photo`, { method: "DELETE" });
+    document.getElementById("btn-photo-supprimer").disabled = true;
+    await chargerPhotoProfil(null);
+    afficherToast("Photo supprimée.", "succes");
+  } catch (err) {
+    afficherToast(err.message, "erreur");
+  }
+});
 
 // --- Startup ---
 
